@@ -101,12 +101,31 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
-## 📅 SECTION 5.2: [Next Module Name]
+### Module 5.2: Taxpayer Profile (Data Layer) (Completed: 2026-02-14)
+**Objective**: Establish the persistent storage for user tax profiles and residential classification.
+
+#### Step 1: Database Migration
+23. **Schema Evolution**: Created `alembic/versions/d0ae6ede2c2f_update_taxpayer_profile_schema.py`.
+    - **Clean Up**: Removed redundant `pan_type` column (derived from User).
+    - **Expansion**: Added `days_in_india` and `has_foreign_income` fields.
+    - **Safety**: Enforced `NOT NULL` on `has_foreign_income` via backfill strategy (add with default -> drop default).
+
+#### Step 2: ORM Implementation
+24. **Model Definition**: Created `backend/app/models/taxpayer.py`.
+    - **Strict 1:1**: Enforced unique `user_id`.
+    - **Constraints**: Added `CheckConstraint` for `residential_status` (RESIDENT/RNOR/NRI).
+    - **Hybrid Property**: Implemented `pan_type` as a read-only derived field.
+
+#### Step 3: Verification
+25. **Runtime Validation**: Validated ORM-to-DB alignment using `verify_taxpayer.py` script.
+26. **Lock**: Created `docs/Completion Lock Docs/04_Phase1_TaxpayerProfile_DataLayer_Lock.md`.
+
+---
+
+## 📅 SECTION 5.3: [Next Module Name]
 **Context**: [TBD]
 **Status**: 🕒 PENDING
-- [ ] **Role-Based Context Middleware**
-- [ ] **Basic RBAC Enforcement**
-- [ ] **Taxpayer Profile Module**
+- [ ] **Taxpayer Profile Service & API**
 - [ ] **Business Entity Module**
 - [ ] **Income & Expense Intake Module**
 - [ ] **Deterministic Compliance Engine**

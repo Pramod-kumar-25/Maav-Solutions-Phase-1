@@ -1,0 +1,18 @@
+Verification Log:
+Starting verification...
+Imports successful.
+1. Verifying TaxpayerProfile model attributes...
+✅ Select query successful. ORM mapping is valid.
+
+2. Verifying Schema Alignment (Columns)...
+DEBUG: Found columns: ['id', 'user_id', 'residential_status', 'default_tax_regime', 'aadhaar_link_status', 'created_at', 'days_in_india_current_fy', 'days_in_india_last_4_years', 'has_foreign_income']
+✅ Column 'days_in_india_current_fy' exists.
+✅ Column 'days_in_india_last_4_years' exists.
+✅ Column 'has_foreign_income' exists.
+✅ Column 'residential_status' exists.
+✅ Column 'default_tax_regime' exists.
+✅ Column 'aadhaar_link_status' exists.
+✅ Column 'user_id' exists.
+
+3. Verifying pan_type removal...
+✅ Column 'pan_type' correctly removed from DB.
