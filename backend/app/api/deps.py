@@ -64,3 +64,37 @@ async def get_current_user(
         )
         
     return user
+
+# RBAC Foundation
+from enum import Enum
+
+class UserRole(str, Enum):
+    INDIVIDUAL = "INDIVIDUAL"
+    BUSINESS = "BUSINESS"
+    CA = "CA"
+    ADMIN = "ADMIN"
+
+class RoleChecker:
+    """
+    Dependency factory for Role-Based Access Control.
+    """
+    def __init__(self, required_role: UserRole):
+        self.required_role = required_role
+
+    def __call__(self, user: User = Depends(get_current_user)) -> User:
+        """
+        Enforces that the user has the required role.
+        """
+        if user.primary_role != self.required_role.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions"
+            )
+        return user
+
+def require_role(role: UserRole) -> RoleChecker:
+    """
+    Helper to create the dependency.
+    Usage: Depends(require_role(UserRole.ADMIN))
+    """
+    return RoleChecker(role)

@@ -4,7 +4,7 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
-## 📅 Module 1: Project Origin
+## 📅 SECTION 1 – PROJECT ORIGIN
 **Context**: Defining the vision, scope, and engineering philosophy.
 **Status**: ✅ COMPLETE
 
@@ -13,7 +13,7 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 3.  **Strategy Definition**: Explicitly separated AI-native roadmap (Phase 2) from deterministic Non-AI foundation (Phase 1).
 4.  **Philosophy Lock**: Enforced "Code is Law" and "Body Before The Brain" principles.
 
-## 📅 Module 2: Architecture Foundation
+## 📅 SECTION 2 – ARCHITECTURE FOUNDATION
 **Context**: Designing the blueprint before writing code.
 **Status**: ✅ COMPLETE
 
@@ -22,7 +22,7 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 3.  **API Contract**: Defined the API structure and exclusionary boundaries.
 4.  **Documentation Discipline**: Locked the "Doc-First" engineering naming conventions.
 
-## 📅 Module 3: Infrastructure Setup
+## 📅 SECTION 3 – INFRASTRUCTURE SETUP
 **Context**: Laying the technical rails.
 **Status**: ✅ COMPLETE
 
@@ -37,7 +37,7 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 5.  **Fail-Safe Config**: Implemented strict `pydantic-settings` validation (Refuse to start on invalid config).
 6.  **Health Check**: Created `/api/v1/health` endpoint.
 
-## 📅 Module 4: Database Ownership
+## 📅 SECTION 4 – DATABASE OWNERSHIP
 **Context**: Establishing "Code is Law" for the Data Layer.
 **Status**: ✅ COMPLETE
 
@@ -48,56 +48,68 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
-## 📅 Module 5: Identity & Authentication
-**Context**: Building the secure foundation for user access.
-**Status**: ✅ COMPLETE
-**Date**: 2026-02-14
+## 📅 SECTION 5 – APPLICATION LAYER DEVELOPMENT
+**Context**: Building the Core Features (Identity, Tax Profile, etc.) using the established foundation.
+**Status**: 🚧 IN PROGRESS
 
-### Step 1: Infrastructure & Dependencies
+### Module 5.1: Identity & Authentication (Completed: 2026-02-14)
+**Objective**: Build the secure foundation for user access.
+
+#### Step 1: Infrastructure & Dependencies
 1.  **Dependency Installation**: Added `passlib[bcrypt]`, `python-jose[cryptography]`, and `email-validator` to `requirements.txt`.
 2.  **Configuration Check**: Verified `SECRET_KEY` and `DATABASE_URL` (AsyncPG) availability in `backend/app/core/config.py`.
 
-### Step 2: Data Layer (Models)
+#### Step 2: Data Layer (Models)
 3.  **Base Model**: Created `backend/app/models/base.py` with SQLAlchemy `declarative_base`.
 4.  **User Models**: Created `backend/app/models/user.py` implementing:
     - `User`: Core identity (UUID, Email, Role).
-    - `UserCredentials`: Segregated auth secrets (`password_hash`, `auth_provider`).
+    - `UserCredentials`: Segregated auth secrets.
     - `AuthSession`: Active session tracking.
 5.  **Refinement**: Updated `User.account_status` to use correct `server_default=text("'ACTIVE'")`.
 
-### Step 3: Security Utilities
+#### Step 3: Security Utilities
 6.  **Hashing Utils**: Created `backend/app/utils/security.py` using `passlib.context.CryptContext` (bcrypt).
-    - Implemented `hash_password()` and `verify_password()`.
 
-### Step 4: Repository Layer
+#### Step 4: Repository Layer
 7.  **AuthRepository**: Created `backend/app/repositories/auth_repository.py`.
-    - Implemented `get_user_by_email`, `create_user`, `create_user_credentials`, `get_credentials_by_user_id`.
-    - Enforced separation of concerns (Pure CRUD, no business logic).
+    - Pure CRUD operations for User and Credentials.
+    - Added `get_user_by_id` for token resolution.
 
-### Step 5: Data Transfer Objects (DTOs)
-8.  **Pydantic Schemas**: Created `backend/app/schemas/`:
-    - `user.py`: `UserCreate`, `UserLogin`, `UserResponse`.
-    - `token.py`: `Token` (JWT structure).
+#### Step 5: Data Transfer Objects (DTOs)
+8.  **Pydantic Schemas**: Created `backend/app/schemas/user.py` and `token.py`.
 
-### Step 6: Service Layer (Business Logic)
+#### Step 6: Service Layer (Business Logic)
 9.  **AuthService**: Created `backend/app/services/auth_service.py`.
-    - **Transaction Control**: Implemented strict `async with session.begin()` for atomic Registration (User + Credentials).
-    - **Logic**: Orchestrated Hashing, Repository calls, and Error handling.
-10. **JWT Implementation**: Replaced mock token logic with `python-jose` (HS256) inside `AuthService`.
+    - **Transaction Control**: Implemented atomic `async with session.begin()` for Registration.
+    - **JWT Generation**: Implemented `python-jose` (HS256) inside Service.
 
-### Step 7: Interface Layer (API)
-11. **Dependencies**: Created `backend/app/api/deps.py` for `get_auth_service` injection.
-12. **Router**: Created `backend/app/api/auth.py` exposing:
-    - `POST /register`: Maps to `AuthService.register_user`.
-    - `POST /login`: Maps to `AuthService.login_user`.
-13. **Wiring**: Mounted router in `backend/app/main.py`.
+#### Step 7: Interface Layer (API)
+10. **Refactored Dependencies**: Updated `deps.py` to use strict Dependency Injection (`get_auth_repository`).
+11. **Router**: Created `backend/app/api/auth.py` exposing `/register` and `/login`.
+12. **Gatekeeper**: Implemented `get_current_user` in `deps.py` as the **Security Perimeter**.
 
-### Step 8: Refinement
-14. **Health Check**: Updated `GET /health` to return **HTTP 503** if DB connection fails.
-15. **Documentation**: Created `docs/Completion Lock Docs/01_Phase1_Identity_Module_Completion.md`.
+#### Step 4: Security Hardening
+19. **Perimeter Lock**: Confirmed that `deps.py` creates a reusable security boundary.
+20. **Documentation**: Created `docs/Completion Lock Docs/02_Phase1_Authentication_Context_Lock.md`.
+
+### Step 5: Authorization Layer (RBAC)
+21. **Role Definition**: Defined `UserRole` Enum (INDIVIDUAL, BUSINESS, CA, ADMIN).
+22. **Dependency Factory**: Implemented `RoleChecker` class in `deps.py`.
+    - **Logic**: Consumes `get_current_user`, verifies `primary_role`.
+    - **Enforcement**: Raises HTTP 403 if role mismatch.
+    - **Usage**: `Depends(require_role(UserRole.ADMIN))`.
 
 ---
 
-## 📅 Module 6: [Next Module Name]
+## 📅 SECTION 5.2: [Next Module Name]
 **Context**: [TBD]
 **Status**: 🕒 PENDING
+- [ ] **Role-Based Context Middleware**
+- [ ] **Basic RBAC Enforcement**
+- [ ] **Taxpayer Profile Module**
+- [ ] **Business Entity Module**
+- [ ] **Income & Expense Intake Module**
+- [ ] **Deterministic Compliance Engine**
+- [ ] **ITR Determination Logic**
+- [ ] **Filing Lifecycle Management**
+- [ ] **CA Assignment & Consent Workflow**
