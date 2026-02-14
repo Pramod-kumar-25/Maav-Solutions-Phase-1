@@ -1,0 +1,12 @@
+# Documentation & Design Files (Ignored for Clean Repo)
+MaaV Development/
+architecture-lock/
+
+# Mental Model Document (Local Only)
+docs/MAAV_The_Journey_and_Mental_Model.md
+
+# Temporary Extraction Folder (from previous steps)
+temp_journey_extracted/
+
+# Archives
+*.zip
