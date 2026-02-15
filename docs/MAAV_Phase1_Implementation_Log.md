@@ -216,3 +216,30 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
+### Module 5.7: Deterministic Compliance Engine (Data/Repo/Service/API) (Completed: 2026-02-15)
+**Objective**: Implement a strict, non-AI rule engine to flag financial anomalies.
+
+#### Step 1: Data Layer
+44. **Schema**: Created `compliance_flags` table (Strict Schema, Drop/Recreate Strategy).
+    - **Model**: `backend/app/models/compliance.py`.
+    - **Migration**: `versions/9dc1fd4443b8_create_compliance_flags_table.py`.
+
+#### Step 2: Rule Framework
+45. **Pure Logic**: Implemented `BaseComplianceRule` interface (No DB Access).
+    - **Rules**: `HighTotalExpenseRule`, `ExpenseWithoutIncomeRule`.
+
+#### Step 3: Service Layer
+46. **Orchestration**: `ComplianceEngineService`.
+    - **Idempotency**: Prevents duplicate flags (Unresolved only).
+    - **Transaction**: Explicit `async with session.begin()` for all writes.
+
+#### Step 4: API Layer
+47. **Interface**: `backend/app/api/compliance.py`.
+    - **Endpoints**: `/evaluate`, `/`, `/{id}/resolve`.
+    - **Strict Layering**: Router depends ONLY on Service.
+
+#### Step 5: Final Lock
+48. **Module Completion**: Created `docs/Completion Lock Docs/09_Phase1_Deterministic_Compliance_Engine_Lock.md`.
+
+---
+

@@ -41,6 +41,18 @@ class FinancialEntryRepository:
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_by_user_id_and_year(self, session: AsyncSession, user_id: UUID, financial_year: str) -> List[FinancialEntry]:
+        """
+        Retrieve all financial entries for a specific user and financial year.
+        Used by Compliance Engine for pure rule evaluation.
+        """
+        stmt = select(FinancialEntry).where(
+            FinancialEntry.user_id == user_id,
+            FinancialEntry.financial_year == financial_year
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
     async def get_by_id(self, session: AsyncSession, entry_id: UUID) -> FinancialEntry | None:
         """
         Retrieve a financial entry by its ID.

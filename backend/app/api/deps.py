@@ -134,3 +134,16 @@ def get_financial_service(
     auth_repo: AuthRepository = Depends(get_auth_repository)
 ) -> FinancialEntryService:
     return FinancialEntryService(financial_repo, auth_repo)
+
+# Compliance Module Dependencies
+from app.repositories.compliance_repository import ComplianceFlagRepository
+from app.services.compliance_service import ComplianceEngineService
+
+def get_compliance_repository() -> ComplianceFlagRepository:
+    return ComplianceFlagRepository()
+
+def get_compliance_service(
+    financial_repo: FinancialEntryRepository = Depends(get_financial_repository),
+    compliance_repo: ComplianceFlagRepository = Depends(get_compliance_repository)
+) -> ComplianceEngineService:
+    return ComplianceEngineService(financial_repo, compliance_repo)
