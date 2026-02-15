@@ -3,7 +3,9 @@ from uuid import UUID
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.consent import ConsentArtifact, ConsentAuditLog
+from app.models.consent import ConsentArtifact, ConsentAuditLog
 from app.repositories.consent_repository import ConsentRepository, ConsentAuditRepository
+from app.core.exceptions import NotFoundError, UnauthorizedError, ValidationError
 
 class ConsentService:
     """
@@ -32,7 +34,7 @@ class ConsentService:
         Valdiates expiry is in the future.
         """
         if expiry_at <= datetime.now(timezone.utc):
-            raise ValueError("Expiry must be in the future")
+            raise ValidationError("Expiry must be in the future")
 
         consent = ConsentArtifact(
             user_id=user_id,
@@ -68,13 +70,13 @@ class ConsentService:
         """
         consent = await self.consent_repo.get_by_id(session, consent_id)
         if not consent:
-            raise ValueError("Consent not found")
+            raise NotFoundError("Consent not found")
         
         if consent.user_id != user_id:
-            raise ValueError("Unauthorized to revoke this consent")
+            raise UnauthorizedError("Unauthorized to revoke this consent")
             
         if consent.status != "ACTIVE":
-            raise ValueError("Consent is not active")
+            raise ValidationError("Consent is not active")
 
         await self.consent_repo.update_status(session, consent_id, "REVOKED")
         

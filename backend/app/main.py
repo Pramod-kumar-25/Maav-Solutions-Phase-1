@@ -4,7 +4,7 @@ from sqlalchemy import text
 from .core.config import settings
 from .core.logging import logger
 from .core.dependencies import get_db
-from .api import auth, taxpayer, business, financials, compliance
+from .api import auth, taxpayer, business, financials, compliance, itr, filing, consent
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -18,6 +18,7 @@ app.include_router(financials.router, prefix="/api/v1/financial", tags=["Financi
 app.include_router(compliance.router, prefix="/api/v1/compliance", tags=["Compliance Engine"])
 app.include_router(itr.router, prefix="/api/v1/itr", tags=["ITR Determination"])
 app.include_router(filing.router, prefix="/api/v1/filing", tags=["Filing Case Workflow"])
+app.include_router(consent.router, prefix="/api/v1/consent", tags=["CA Assignment & Consent"])
 
 @app.get("/api/v1/health")
 async def health_check(db: AsyncSession = Depends(get_db)):

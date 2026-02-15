@@ -4,11 +4,15 @@ from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
 from uuid import UUID
+from datetime import datetime, timezone
 from app.core.config import settings
 from app.core.dependencies import get_db
 from app.models.user import User
+from app.models.consent import CAAssignment
 from app.repositories.auth_repository import AuthRepository
 from app.services.auth_service import AuthService
+from app.core.exceptions import NotFoundError, UnauthorizedError, ValidationError
+
 
 # Constants
 ALGORITHM = "HS256"
@@ -188,3 +192,71 @@ def get_filing_service(
     audit_service: AuditService = Depends(get_audit_service)
 ) -> FilingCaseService:
     return FilingCaseService(filing_repo, itr_repo, audit_service)
+
+# Consent & CA Assignment Module Dependencies
+from app.repositories.consent_repository import ConsentRepository, CAAssignmentRepository, ConsentAuditRepository
+from app.services.consent_service import ConsentService
+from app.services.ca_assignment_service import CAAssignmentService
+
+def get_consent_repository() -> ConsentRepository:
+    return ConsentRepository()
+
+def get_ca_assignment_repository() -> CAAssignmentRepository:
+    return CAAssignmentRepository()
+
+def get_consent_audit_repository() -> ConsentAuditRepository:
+    return ConsentAuditRepository()
+
+def get_consent_service(
+    consent_repo: ConsentRepository = Depends(get_consent_repository),
+    audit_repo: ConsentAuditRepository = Depends(get_consent_audit_repository)
+) -> ConsentService:
+    return ConsentService(consent_repo, audit_repo)
+
+def get_ca_assignment_service(
+    consent_repo: ConsentRepository = Depends(get_consent_repository),
+    assignment_repo: CAAssignmentRepository = Depends(get_ca_assignment_repository),
+    audit_repo: ConsentAuditRepository = Depends(get_consent_audit_repository),
+    auth_repo: AuthRepository = Depends(get_auth_repository),
+    filing_repo: FilingCaseRepository = Depends(get_filing_repository)
+) -> CAAssignmentService:
+    return CAAssignmentService(consent_repo, assignment_repo, audit_repo, auth_repo, filing_repo)
+
+async def require_valid_ca_assignment(
+    filing_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: CAAssignmentService = Depends(get_ca_assignment_service),
+    session: AsyncSession = Depends(get_db)
+) -> CAAssignment:
+    """
+    Dependency to enforce CA Access Control.
+    Delegates validation to CAAssignmentService.
+    """
+    # 0. Role Check (Keep minimal fast check here)
+    if current_user.primary_role != "CA":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only CAs can access this resource"
+        )
+
+    try:
+        return await service.validate_ca_access(
+            session=session,
+            filing_id=filing_id,
+            ca_user_id=current_user.id
+        )
+    except UnauthorizedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except NotFoundError as e:
+         raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except ValidationError as e:
+         raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, # Access Control Failures usually 403
+            detail=str(e)
+        )

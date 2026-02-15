@@ -304,3 +304,30 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
   - **Integration**: Injected `AuditService` into `FilingCaseService`, `ITRDeterminationService`, and `ComplianceEngineService`.
   - **Dependencies**: Updated `deps.py`.
 - **Lock**: `docs/Completion Lock Docs/12_Phase1_Audit_Logging_Lock.md` created.
+
+---
+
+### Module 5.11: CA Assignment & Consent Workflow (Completed: 2026-02-15)
+**Objective**: Implement the DPDP-aligned Consent Architecture and CA Assignment system.
+
+#### Step 1: Data Layer
+- **Models**: Created `ConsentArtifact`, `CAAssignment`, `ConsentAuditLog` mapping to existing schema.
+
+#### Step 2: Repository Layer
+- **Persistence**: Implemented `ConsentRepository`, `CAAssignmentRepository`, `ConsentAuditRepository`.
+
+#### Step 3: Service Layer
+- **Logic**: Separated `ConsentService` (Lifecycle) and `CAAssignmentService` (Operational).
+- **Validation**: Enforced "Consent First" rule—Assignment cannot exist without active Consent.
+
+#### Step 4: Security Dependency
+- **Gatekeeper**: Implemented `require_valid_ca_assignment` in `deps.py`.
+- **Check**: Validates Role (CA) + Assignment Status + Consent Status + Expiry in one atomic check.
+
+#### Step 5: API Layer
+- **Refactor**: Replaced generic `ValueError` with typed exceptions (`UnauthorizedError`, etc.).
+- **Interface**: Exposed Grant, Revoke, and Assign endpoints.
+
+#### Step 6: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/13_Phase1_CA_Assignment_Lock.md`.
+

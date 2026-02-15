@@ -1,10 +1,13 @@
 from datetime import datetime, timezone
 from uuid import UUID
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.consent import CAAssignment, ConsentAuditLog
 from app.repositories.consent_repository import ConsentRepository, CAAssignmentRepository, ConsentAuditRepository
 from app.repositories.auth_repository import AuthRepository
+from app.repositories.auth_repository import AuthRepository
 from app.repositories.filing_repository import FilingCaseRepository
+from app.core.exceptions import NotFoundError, UnauthorizedError, ValidationError
 
 class CAAssignmentService:
     """
@@ -42,43 +45,43 @@ class CAAssignmentService:
         filing = await self.filing_repo.get_by_id(session, filing_id)
         
         if not filing:
-            raise ValueError("Filing Case not found")
+            raise NotFoundError("Filing Case not found")
         
         if filing.user_id != taxpayer_id:
-            raise ValueError("Unauthorized to assign CA for this filing")
+            raise UnauthorizedError("Unauthorized to assign CA for this filing")
             
         if filing.filing_mode != "CA":
-            raise ValueError("Filing mode must be 'CA' to assign a Chartered Accountant")
+            raise ValidationError("Filing mode must be 'CA' to assign a Chartered Accountant")
 
         if filing.current_state not in ["DRAFT", "READY_FOR_REVIEW"]:
-                raise ValueError("Cannot assign CA in current state")
+                raise ValidationError("Cannot assign CA in current state")
 
         # 2. Validate CA User
         ca_user = await self.auth_repo.get_user_by_id(session, ca_user_id)
         if not ca_user:
-            raise ValueError("CA User not found")
+            raise NotFoundError("CA User not found")
         
         if ca_user.primary_role != "CA":
-            raise ValueError("Assigned user is not a Chartered Accountant")
+            raise ValidationError("Assigned user is not a Chartered Accountant")
 
         # 3. Validate Consent
         consent = await self.consent_repo.get_by_id(session, consent_id)
         if not consent:
-            raise ValueError("Consent not found")
+            raise NotFoundError("Consent not found")
         
         if consent.user_id != taxpayer_id:
-            raise ValueError("Consent does not belong to taxpayer")
+            raise UnauthorizedError("Consent does not belong to taxpayer")
             
         if consent.status != "ACTIVE":
-            raise ValueError("Consent is not active")
+            raise ValidationError("Consent is not active")
             
         if consent.expiry_at <= datetime.now(timezone.utc):
-            raise ValueError("Consent has expired")
+            raise ValidationError("Consent has expired")
 
         # 4. Check Duplicate
         existing = await self.assignment_repo.get_by_filing_id(session, filing_id)
         if existing and existing.status == "ACTIVE":
-            raise ValueError("An active CA assignment already exists for this filing")
+            raise ValidationError("An active CA assignment already exists for this filing")
 
         # 5. Create Assignment
         assignment = CAAssignment(
@@ -100,3 +103,40 @@ class CAAssignmentService:
         ))
         
         return created_assignment
+
+    async def validate_ca_access(
+        self,
+        session: AsyncSession,
+        filing_id: UUID,
+        ca_user_id: UUID
+    ) -> CAAssignment:
+        """
+        Validates that a CA has legitimate access to a filing.
+        Checks:
+        - Active Assignment Exists
+        - Assigned to THIS CA
+        - Underyling Consent is ACTIVE and UNEXPIRED within validation window
+        """
+        # 1. Fetch Assignment
+        assignment = await self.assignment_repo.get_by_filing_id(session, filing_id)
+        if not assignment:
+            raise UnauthorizedError("No assignment found for this filing")
+
+        if assignment.ca_user_id != ca_user_id:
+            raise UnauthorizedError("Not assigned to this filing")
+
+        if assignment.status != "ACTIVE":
+            raise UnauthorizedError("Assignment is inactive")
+
+        # 2. Fetch & Validate Consent
+        consent = await self.consent_repo.get_by_id(session, assignment.consent_id)
+        if not consent:
+            raise UnauthorizedError("Underlying consent missing")
+
+        if consent.status != "ACTIVE":
+            raise UnauthorizedError("Consent has been revoked or is inactive")
+
+        if consent.expiry_at <= datetime.now(timezone.utc):
+            raise UnauthorizedError("Consent has expired")
+
+        return assignment
