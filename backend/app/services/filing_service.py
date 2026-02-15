@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.filing import FilingCase
 from app.repositories.filing_repository import FilingCaseRepository
 from app.repositories.itr_repository import ITRDeterminationRepository
+from app.services.audit_service import AuditService
 
 class FilingCaseService:
     """
@@ -22,10 +23,12 @@ class FilingCaseService:
     def __init__(
         self, 
         filing_repo: FilingCaseRepository,
-        itr_repo: ITRDeterminationRepository
+        itr_repo: ITRDeterminationRepository,
+        audit_service: AuditService
     ):
         self.filing_repo = filing_repo
         self.itr_repo = itr_repo
+        self.audit_service = audit_service
         
         # Strict Forward-Only State Machine
         self._transitions: Dict[str, Set[str]] = {
@@ -46,7 +49,8 @@ class FilingCaseService:
         session: AsyncSession, 
         user_id: UUID, 
         financial_year: str, 
-        itr_determination_id: UUID
+        itr_determination_id: UUID,
+        actor_role: str = "SYSTEM" # Default if not provided, but mostly called by user action
     ) -> FilingCase:
         """
         Initialize a new filing case in DRAFT state.
@@ -83,14 +87,31 @@ class FilingCaseService:
                 updated_at=datetime.now(timezone.utc)
             )
             
-            return await self.filing_repo.create_case(session, new_case)
+            created_case = await self.filing_repo.create_case(session, new_case)
+            
+            # 4. Audit Log
+            await self.audit_service.log_action(
+                session=session,
+                actor_id=user_id,
+                actor_role=actor_role,
+                action="FILING_CASE_CREATED",
+                after_value={
+                    "id": str(created_case.id),
+                    "financial_year": financial_year,
+                    "itr_determination_id": str(itr_determination_id),
+                    "current_state": self.STATE_DRAFT
+                }
+            )
+            
+            return created_case
 
     async def transition_state(
         self, 
         session: AsyncSession, 
         user_id: UUID, 
         financial_year: str, 
-        next_state: str
+        next_state: str,
+        actor_role: str
     ) -> FilingCase:
         """
         Move the case to the next state.
@@ -109,6 +130,12 @@ class FilingCaseService:
             if next_state not in allowed_next:
                 raise ValueError(f"Invalid transition from {current_state} to {next_state}")
 
+            # Capture state before update
+            before_value = {
+                "id": str(case.id),
+                "current_state": current_state
+            }
+
             # 3. Apply Updates
             updates = {
                 "current_state": next_state,
@@ -119,4 +146,20 @@ class FilingCaseService:
             if next_state == self.STATE_SUBMITTED:
                 updates["submitted_at"] = datetime.now(timezone.utc)
 
-            return await self.filing_repo.update_case(session, case, updates)
+            updated_case = await self.filing_repo.update_case(session, case, updates)
+            
+            # 4. Audit Log
+            await self.audit_service.log_action(
+                session=session,
+                actor_id=user_id,
+                actor_role=actor_role,
+                action="FILING_STATE_TRANSITION",
+                before_value=before_value,
+                after_value={
+                    "id": str(updated_case.id),
+                    "current_state": next_state,
+                    "previous_state": current_state
+                }
+            )
+
+            return updated_case

@@ -6,3 +6,5 @@ from .financials import FinancialEntry
 from .compliance import ComplianceFlag
 from .itr import ITRDetermination
 from .filing import FilingCase
+from .audit import AuditLog
+from .consent import ConsentArtifact, CAAssignment, ConsentAuditLog

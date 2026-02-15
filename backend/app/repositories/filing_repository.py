@@ -11,6 +11,12 @@ class FilingCaseRepository:
     Strictly no business logic.
     """
 
+    async def get_by_id(self, session: AsyncSession, filing_id: UUID) -> Optional[FilingCase]:
+        result = await session.execute(
+            select(FilingCase).where(FilingCase.id == filing_id)
+        )
+        return result.scalars().first()
+
     async def get_by_user_and_year(self, session: AsyncSession, user_id: UUID, financial_year: str) -> Optional[FilingCase]:
         """
         Retrieve Filing Case for a specific user and financial year.

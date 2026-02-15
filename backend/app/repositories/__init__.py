@@ -3,3 +3,5 @@ from .financial_repository import FinancialEntryRepository
 from .compliance_repository import ComplianceFlagRepository
 from .itr_repository import ITRDeterminationRepository
 from .filing_repository import FilingCaseRepository
+from .audit_repository import AuditLogRepository
+from .consent_repository import ConsentRepository, CAAssignmentRepository, ConsentAuditRepository

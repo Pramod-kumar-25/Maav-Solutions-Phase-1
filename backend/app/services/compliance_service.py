@@ -5,6 +5,7 @@ from app.schemas.compliance import ComplianceFlagResponse
 
 from app.repositories.financial_repository import FinancialEntryRepository
 from app.repositories.compliance_repository import ComplianceFlagRepository
+from app.services.audit_service import AuditService
 from app.services.compliance_rules import (
     BaseComplianceRule,
     HighTotalExpenseRule,
@@ -19,10 +20,12 @@ class ComplianceEngineService:
     def __init__(
         self,
         financial_repo: FinancialEntryRepository,
-        compliance_repo: ComplianceFlagRepository
+        compliance_repo: ComplianceFlagRepository,
+        audit_service: AuditService
     ):
         self.financial_repo = financial_repo
         self.compliance_repo = compliance_repo
+        self.audit_service = audit_service
         # Static Registry of Rules - Deterministic Order
         self.rules: List[Type[BaseComplianceRule]] = [
             HighTotalExpenseRule,
@@ -80,7 +83,14 @@ class ComplianceEngineService:
             return await self.compliance_repo.get_by_user_id_and_year(session, user_id, financial_year)
         return await self.compliance_repo.get_by_user_id(session, user_id)
 
-    async def resolve_flag(self, session: AsyncSession, user_id: UUID, flag_id: UUID, notes: str | None) -> ComplianceFlagResponse:
+    async def resolve_flag(
+        self, 
+        session: AsyncSession, 
+        user_id: UUID, 
+        flag_id: UUID, 
+        notes: str | None,
+        actor_role: str = "SYSTEM"
+    ) -> ComplianceFlagResponse:
         """
         Resolve a flag. Enforces ownership.
         """
@@ -93,6 +103,28 @@ class ComplianceEngineService:
                 
             if flag.user_id != user_id:
                 raise ValueError("Unauthorized to resolve this flag")
-                
+            
+            # Capture state before
+            before_value = {
+                "id": str(flag.id),
+                "is_resolved": flag.is_resolved
+            }
+
             # 2. Mark Resolved
-            return await self.compliance_repo.mark_resolved(session, flag_id, notes)
+            resolved_flag = await self.compliance_repo.mark_resolved(session, flag_id, notes)
+            
+            # Audit Log
+            await self.audit_service.log_action(
+                session=session,
+                actor_id=user_id,
+                actor_role=actor_role,
+                action="COMPLIANCE_FLAG_RESOLVED",
+                before_value=before_value,
+                after_value={
+                    "id": str(resolved_flag.id),
+                    "is_resolved": True,
+                    "resolution_notes": notes
+                }
+            )
+            
+            return resolved_flag

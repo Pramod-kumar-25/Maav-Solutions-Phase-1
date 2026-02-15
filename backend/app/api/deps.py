@@ -99,6 +99,18 @@ def require_role(role: UserRole) -> RoleChecker:
     """
     return RoleChecker(role)
 
+# Audit Module Dependencies (Moved up for availability)
+from app.repositories.audit_repository import AuditLogRepository
+from app.services.audit_service import AuditService
+
+def get_audit_repository() -> AuditLogRepository:
+    return AuditLogRepository()
+
+def get_audit_service(
+    repo: AuditLogRepository = Depends(get_audit_repository)
+) -> AuditService:
+    return AuditService(repo)
+
 # Taxpayer Module Dependencies
 from app.repositories.taxpayer_repository import TaxpayerRepository
 from app.services.taxpayer_service import TaxpayerProfileService
@@ -144,9 +156,10 @@ def get_compliance_repository() -> ComplianceFlagRepository:
 
 def get_compliance_service(
     financial_repo: FinancialEntryRepository = Depends(get_financial_repository),
-    compliance_repo: ComplianceFlagRepository = Depends(get_compliance_repository)
+    compliance_repo: ComplianceFlagRepository = Depends(get_compliance_repository),
+    audit_service: AuditService = Depends(get_audit_service)
 ) -> ComplianceEngineService:
-    return ComplianceEngineService(financial_repo, compliance_repo)  # Pass 2 args
+    return ComplianceEngineService(financial_repo, compliance_repo, audit_service)
     
 # ITR Determination Module Dependencies
 from app.repositories.itr_repository import ITRDeterminationRepository
@@ -157,9 +170,10 @@ def get_itr_repository() -> ITRDeterminationRepository:
 
 def get_itr_service(
     financial_repo: FinancialEntryRepository = Depends(get_financial_repository),
-    itr_repo: ITRDeterminationRepository = Depends(get_itr_repository)
+    itr_repo: ITRDeterminationRepository = Depends(get_itr_repository),
+    audit_service: AuditService = Depends(get_audit_service)
 ) -> ITRDeterminationService:
-    return ITRDeterminationService(financial_repo, itr_repo)
+    return ITRDeterminationService(financial_repo, itr_repo, audit_service)
 
 # Filing Case Module Dependencies
 from app.repositories.filing_repository import FilingCaseRepository
@@ -170,6 +184,7 @@ def get_filing_repository() -> FilingCaseRepository:
 
 def get_filing_service(
     filing_repo: FilingCaseRepository = Depends(get_filing_repository),
-    itr_repo: ITRDeterminationRepository = Depends(get_itr_repository)
+    itr_repo: ITRDeterminationRepository = Depends(get_itr_repository),
+    audit_service: AuditService = Depends(get_audit_service)
 ) -> FilingCaseService:
-    return FilingCaseService(filing_repo, itr_repo)
+    return FilingCaseService(filing_repo, itr_repo, audit_service)

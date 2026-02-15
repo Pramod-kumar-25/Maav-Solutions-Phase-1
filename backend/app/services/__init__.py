@@ -5,3 +5,6 @@ from .financial_service import FinancialEntryService
 from .compliance_service import ComplianceEngineService
 from .itr_service import ITRDeterminationService
 from .filing_service import FilingCaseService
+from .audit_service import AuditService
+from .consent_service import ConsentService
+from .ca_assignment_service import CAAssignmentService

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.itr import ITRDetermination
 from app.repositories.financial_repository import FinancialEntryRepository
 from app.repositories.itr_repository import ITRDeterminationRepository
+from app.services.audit_service import AuditService
 
 class ITRDeterminationService:
     """
@@ -21,10 +22,12 @@ class ITRDeterminationService:
     def __init__(
         self,
         financial_repo: FinancialEntryRepository,
-        itr_repo: ITRDeterminationRepository
+        itr_repo: ITRDeterminationRepository,
+        audit_service: AuditService
     ):
         self.financial_repo = financial_repo
         self.itr_repo = itr_repo
+        self.audit_service = audit_service
 
     async def determine_itr(self, session: AsyncSession, user_id: UUID, financial_year: str) -> ITRDetermination:
         """
@@ -104,7 +107,13 @@ class ITRDeterminationService:
         """
         return await self.itr_repo.get_by_user_and_year(session, user_id, financial_year)
 
-    async def lock_determination(self, session: AsyncSession, user_id: UUID, financial_year: str) -> ITRDetermination:
+    async def lock_determination(
+        self, 
+        session: AsyncSession, 
+        user_id: UUID, 
+        financial_year: str,
+        actor_role: str = "SYSTEM"
+    ) -> ITRDetermination:
         """
         Lock an existing determination.
         Enforces ownership via get_by_user_and_year (implicitly checks user_id).
@@ -117,5 +126,28 @@ class ITRDeterminationService:
             
             if existing.is_locked:
                 raise ValueError("Determination is already locked")
+            
+            # Capture state before update
+            before_value = {
+                "id": str(existing.id),
+                "is_locked": False,
+                "itr_type": existing.itr_type
+            }
 
-            return await self.itr_repo.update_determination(session, existing, {"is_locked": True})
+            locked_determination = await self.itr_repo.update_determination(session, existing, {"is_locked": True})
+
+            # Audit Log
+            await self.audit_service.log_action(
+                session=session,
+                actor_id=user_id,
+                actor_role=actor_role,
+                action="ITR_LOCKED",
+                before_value=before_value,
+                after_value={
+                    "id": str(locked_determination.id),
+                    "is_locked": True,
+                    "itr_type": locked_determination.itr_type
+                }
+            )
+
+            return locked_determination

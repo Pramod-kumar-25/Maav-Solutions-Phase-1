@@ -295,3 +295,12 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
+
+### Module 5.10: Audit Logging System (Completed: 2026-02-15)
+- **Objective**: Implement a robust, centralized Audit Logging system aligned with the existing schema.
+- **Features**:
+  - **Data Layer**: `AuditLog` model aligned with `audit_logs` table (Migration skipped).
+  - **Core**: `AuditLogRepository` and `AuditService` implemented.
+  - **Integration**: Injected `AuditService` into `FilingCaseService`, `ITRDeterminationService`, and `ComplianceEngineService`.
+  - **Dependencies**: Updated `deps.py`.
+- **Lock**: `docs/Completion Lock Docs/12_Phase1_Audit_Logging_Lock.md` created.
