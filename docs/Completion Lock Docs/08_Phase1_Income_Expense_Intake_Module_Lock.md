@@ -1,15 +1,15 @@
-# Infinity Completion Lock: Module 5.6 - Financial Ledger
+# Infinity Completion Lock: Module 5.6 - Income & Expense Intake Module
 
 > **"The Ledger of Truth"**
 
-This document certifies the completion of the **Financial Ledger Module** for MaaV Solutions Phase-1. It locks the architectural decisions, schema, and API contracts for the income and expense intake system.
+This document certifies the completion of the **Income & Expense Intake Module** for MaaV Solutions Phase-1. It locks the architectural decisions, schema, and API contracts for the income and expense intake system.
 
 ---
 
 ## 1. Architectural Decisions
 
 ### A. The Unified Ledger (`financial_entries`)
-We rejected the initial design of separate `income_records` and `expense_records` tables in favor of a **Unified Ledger** approach to support future scalability and simpler querying.
+We rejected the initial design of separate `income_records` and `expense_records` tables in favor of a **Unified Financial Ledger** approach to support future scalability and simpler querying.
 
 - **Table**: `financial_entries`
 - **Discriminator**: `entry_type` (Enum: `INCOME` | `EXPENSE`)
@@ -84,6 +84,6 @@ The following are explicitly **OUT OF SCOPE** for this module and must not be ad
 ---
 
 **Sign-off**:
-*   **Module**: 5.6 Financial Ledger
+*   **Module**: 5.6 Income & Expense Intake
 *   **Status**: 🔒 LOCKED
 *   **Date**: 2026-02-15

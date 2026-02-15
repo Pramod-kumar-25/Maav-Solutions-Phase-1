@@ -189,11 +189,11 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
-## 📅 SECTION 5.6: Financial Ledger Module (Data/Repo/Service/API)
+## 📅 SECTION 5.6: Income & Expense Intake Module (Data/Repo/Service/API)
 **Context**: Implementing the unified system for Income and Expense intake.
 **Status**: ✅ COMPLETE
 
-### Module 5.6: Financial Ledger (Unified) (Completed: 2026-02-15)
+### Module 5.6: Income & Expense Intake Module (Completed: 2026-02-15)
 **Objective**: Create a robust, persona-agnostic ledger for financial tracking.
 
 #### Step 1: Architectural Pivot
@@ -212,7 +212,7 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 42. **API**: `backend/app/api/financials.py` (RBAC: Individual/Business).
 
 #### Step 4: Final Lock
-43. **Module Completion**: Created `docs/Completion Lock Docs/08_Phase1_FinancialLedger_Module_Lock.md`.
+43. **Module Completion**: Created `docs/Completion Lock Docs/08_Phase1_Income_Expense_Intake_Module_Lock.md`.
 
 ---
 
