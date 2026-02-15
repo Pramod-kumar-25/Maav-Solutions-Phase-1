@@ -1,1 +1,2 @@
 from .auth_repository import AuthRepository
+from .financial_repository import FinancialEntryRepository

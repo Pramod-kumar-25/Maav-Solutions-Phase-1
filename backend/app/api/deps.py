@@ -121,3 +121,16 @@ def get_business_service(
     auth_repo: AuthRepository = Depends(get_auth_repository)
 ) -> BusinessProfileService:
     return BusinessProfileService(business_repo, auth_repo)
+
+# Financial Module Dependencies
+from app.repositories.financial_repository import FinancialEntryRepository
+from app.services.financial_service import FinancialEntryService
+
+def get_financial_repository() -> FinancialEntryRepository:
+    return FinancialEntryRepository()
+
+def get_financial_service(
+    financial_repo: FinancialEntryRepository = Depends(get_financial_repository),
+    auth_repo: AuthRepository = Depends(get_auth_repository)
+) -> FinancialEntryService:
+    return FinancialEntryService(financial_repo, auth_repo)

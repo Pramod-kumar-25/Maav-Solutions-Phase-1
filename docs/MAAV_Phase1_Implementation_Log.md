@@ -189,11 +189,30 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
-## 📅 SECTION 5.6: [Next Module Name]
-**Context**: [TBD]
-**Status**: 🕒 PENDING
-- [ ] **Income & Expense Intake Module**
-- [ ] **Deterministic Compliance Engine**
-- [ ] **ITR Determination Logic**
-- [ ] **Filing Lifecycle Management**
-- [ ] **CA Assignment & Consent Workflow**
+## 📅 SECTION 5.6: Financial Ledger Module (Data/Repo/Service/API)
+**Context**: Implementing the unified system for Income and Expense intake.
+**Status**: ✅ COMPLETE
+
+### Module 5.6: Financial Ledger (Unified) (Completed: 2026-02-15)
+**Objective**: Create a robust, persona-agnostic ledger for financial tracking.
+
+#### Step 1: Architectural Pivot
+38. **Unified Design**: Replaced separate `income_records` and `expense_records` with a single `financial_entries` table.
+    - **Why**: Simplified querying and clearer "Net Cash Flow" logic.
+    - **Models**: `backend/app/models/financials.py`.
+
+#### Step 2: Safe Migration
+39. **Manual Transition**: Created `alembic/versions/24bb6ee68183_unify_financial_ledger.py`.
+    - **Backfill Strategy**: Migrated existing data to new structure before dropping old tables.
+    - **Data Integrity**: Preserved `data_sources`.
+
+#### Step 3: Stack Implementation
+40. **Repository**: `FinancialEntryRepository` (Async/SQLAlchemy).
+41. **Service**: `FinancialEntryService` (Transactions, Validation, Ownership Checks).
+42. **API**: `backend/app/api/financials.py` (RBAC: Individual/Business).
+
+#### Step 4: Final Lock
+43. **Module Completion**: Created `docs/Completion Lock Docs/08_Phase1_FinancialLedger_Module_Lock.md`.
+
+---
+
