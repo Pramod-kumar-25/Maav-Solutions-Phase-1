@@ -136,10 +136,33 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
-## 📅 SECTION 5.4: [Next Module Name]
+### Module 5.4: Taxpayer Profile Integration (Repo/Service/API) (Completed: 2026-02-15)
+**Objective**: Connect the data, logic, and interface layers to expose the Taxpayer Profile feature.
+
+#### Step 1: Repository Layer
+29. **Persistence**: Created `backend/app/repositories/taxpayer_repository.py`.
+    - **Methods**: `get_by_user_id`, `create_profile`.
+    - **Isolation**: Pure database interactions, no business logic.
+
+#### Step 2: Service Layer
+30. **Orchestration**: Created `backend/app/services/taxpayer_service.py`.
+    - **Flow**: 1:1 Check -> Engine Calc -> Business Rule (No NRI) -> Transaction Commit.
+    - **Schema**: Created `backend/app/schemas/taxpayer.py`.
+
+#### Step 3: API Layer
+31. **Interface**: Created `backend/app/api/taxpayer.py`.
+    - **Endpoints**: `POST /profile`, `GET /profile`.
+    - **Security**: Enforced `INDIVIDUAL` role via standard RBAC.
+    - **Registration**: Mounted in `main.py` at `/api/v1/taxpayer`.
+
+#### Step 4: Final Lock
+32. **Module Completion**: Created `docs/Completion Lock Docs/06_Phase1_TaxpayerProfile_Module_Lock.md`.
+
+---
+
+## 📅 SECTION 5.5: [Next Module Name]
 **Context**: [TBD]
 **Status**: 🕒 PENDING
-- [ ] **Taxpayer Profile Service & API**
 - [ ] **Business Entity Module**
 - [ ] **Income & Expense Intake Module**
 - [ ] **Deterministic Compliance Engine**

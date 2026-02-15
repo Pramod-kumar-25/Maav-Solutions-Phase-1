@@ -98,3 +98,13 @@ def require_role(role: UserRole) -> RoleChecker:
     Usage: Depends(require_role(UserRole.ADMIN))
     """
     return RoleChecker(role)
+
+# Taxpayer Module Dependencies
+from app.repositories.taxpayer_repository import TaxpayerRepository
+from app.services.taxpayer_service import TaxpayerProfileService
+
+def get_taxpayer_repository() -> TaxpayerRepository:
+    return TaxpayerRepository()
+
+def get_taxpayer_service(repo: TaxpayerRepository = Depends(get_taxpayer_repository)) -> TaxpayerProfileService:
+    return TaxpayerProfileService(repo)
