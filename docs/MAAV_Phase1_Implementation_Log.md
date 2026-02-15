@@ -122,7 +122,21 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
-## 📅 SECTION 5.3: [Next Module Name]
+### Module 5.3: Residential Classification Engine (Logic Layer) (Completed: 2026-02-15)
+**Objective**: Implement the deterministic logic for Residential Status (Section 6(1)) without external dependencies.
+
+#### Step 1: Engine Implementation
+27. **Pure Logic**: Created `backend/app/engines/classification.py`.
+    - **No Side Effects**: Function `calculate_residential_status` accepts data, returns Enum.
+    - **Logic Limits**: Implemented 182-day and 60+365-day rules (Phase 1).
+    - **Forward Compatibility**: Signature accepts citizen/income params for future Phase 2 rules (120-day, Deemed Resident).
+
+#### Step 2: Documentation Lock
+28. **Lock**: Created `docs/Completion Lock Docs/05_Phase1_ResidentialClassification_Engine_Lock.md`.
+
+---
+
+## 📅 SECTION 5.4: [Next Module Name]
 **Context**: [TBD]
 **Status**: 🕒 PENDING
 - [ ] **Taxpayer Profile Service & API**
