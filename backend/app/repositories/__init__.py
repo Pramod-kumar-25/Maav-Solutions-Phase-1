@@ -1,3 +1,4 @@
 from .auth_repository import AuthRepository
 from .financial_repository import FinancialEntryRepository
 from .compliance_repository import ComplianceFlagRepository
+from .itr_repository import ITRDeterminationRepository

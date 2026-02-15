@@ -23,6 +23,7 @@ class User(Base):
     taxpayer_profile = relationship("TaxpayerProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     business_profile = relationship("BusinessProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     compliance_flags = relationship("ComplianceFlag", back_populates="user", cascade="all, delete-orphan")
+    itr_determinations = relationship("ITRDetermination", back_populates="user", cascade="all, delete-orphan")
 
 class UserCredentials(Base):
     __tablename__ = "user_credentials"

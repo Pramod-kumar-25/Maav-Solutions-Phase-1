@@ -146,4 +146,17 @@ def get_compliance_service(
     financial_repo: FinancialEntryRepository = Depends(get_financial_repository),
     compliance_repo: ComplianceFlagRepository = Depends(get_compliance_repository)
 ) -> ComplianceEngineService:
-    return ComplianceEngineService(financial_repo, compliance_repo)
+    return ComplianceEngineService(financial_repo, compliance_repo)  # Pass 2 args
+    
+# ITR Determination Module Dependencies
+from app.repositories.itr_repository import ITRDeterminationRepository
+from app.services.itr_service import ITRDeterminationService
+
+def get_itr_repository() -> ITRDeterminationRepository:
+    return ITRDeterminationRepository()
+
+def get_itr_service(
+    financial_repo: FinancialEntryRepository = Depends(get_financial_repository),
+    itr_repo: ITRDeterminationRepository = Depends(get_itr_repository)
+) -> ITRDeterminationService:
+    return ITRDeterminationService(financial_repo, itr_repo)

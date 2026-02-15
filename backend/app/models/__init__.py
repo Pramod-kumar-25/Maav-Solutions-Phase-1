@@ -4,3 +4,4 @@ from .taxpayer import TaxpayerProfile
 from .business import BusinessProfile
 from .financials import FinancialEntry
 from .compliance import ComplianceFlag
+from .itr import ITRDetermination

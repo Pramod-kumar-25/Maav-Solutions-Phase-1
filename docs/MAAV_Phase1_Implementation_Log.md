@@ -243,3 +243,27 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
+### Module 5.8: ITR Determination Engine (Data/Repo/Service/API) (Completed: 2026-02-15)
+**Objective**: Deterministically select ITR Form (ITR-1/2/3) based on financial ledger.
+
+#### Step 1: Data Layer
+49. **Schema**: Created `itr_determinations` table.
+    - **Model**: `backend/app/models/itr.py`.
+    - **Migration**: `versions/386a56dbabbb_create_itr_determinations_table.py` (Safe Reset Strategy).
+
+#### Step 2: Service Layer (The Engine)
+50. **Logic**: `ITRDeterminationService`.
+    - **Rules**: Business -> ITR-3, Mixed -> ITR-2, Salary/Other -> ITR-1.
+    - **Locking**: Implemented `lock_determination` workflow.
+    - **Transaction**: Atomic read-compute-write cycle.
+
+#### Step 3: API Layer
+51. **Interface**: `backend/app/api/itr.py`.
+    - **Endpoints**: `/determine`, `/`, `/{year}/lock`.
+    - **Validation**: Strict YYYY-YY regex and Role checks.
+
+#### Step 4: Final Lock
+52. **Module Completion**: Created `docs/Completion Lock Docs/10_Phase1_ITR_Determination_Engine_Lock.md`.
+
+---
+
