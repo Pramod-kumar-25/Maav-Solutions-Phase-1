@@ -108,3 +108,16 @@ def get_taxpayer_repository() -> TaxpayerRepository:
 
 def get_taxpayer_service(repo: TaxpayerRepository = Depends(get_taxpayer_repository)) -> TaxpayerProfileService:
     return TaxpayerProfileService(repo)
+
+# Business Module Dependencies
+from app.repositories.business_repository import BusinessRepository
+from app.services.business_service import BusinessProfileService
+
+def get_business_repository() -> BusinessRepository:
+    return BusinessRepository()
+
+def get_business_service(
+    business_repo: BusinessRepository = Depends(get_business_repository),
+    auth_repo: AuthRepository = Depends(get_auth_repository)
+) -> BusinessProfileService:
+    return BusinessProfileService(business_repo, auth_repo)

@@ -160,10 +160,38 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
-## 📅 SECTION 5.5: [Next Module Name]
+### Module 5.5: Business Profile Module (Repo/Service/API) (Completed: 2026-02-15)
+**Objective**: Implement the Business Profile system for Non-Individual entities.
+
+#### Step 1: Data Layer
+33. **Schema**: Created `business_profiles` table via Alembic (`9a54bfb1c477`).
+    - **Model**: `backend/app/models/business.py`.
+    - **Constraint**: Strict 1:1 with User.
+
+#### Step 2: Repository Layer
+34. **Persistence**: Created `backend/app/repositories/business_repository.py`.
+    - **Methods**: `get_by_user_id`, `create_profile`.
+
+#### Step 3: Service Layer
+35. **Orchestration**: Created `backend/app/services/business_service.py`.
+    - **Validation**:
+        - **Block 'P'**: Individuals cannot create Business Profiles (Phase 1).
+        - **Match Char**: Constitution must match PAN 4th character.
+
+#### Step 4: API Layer
+36. **Interface**: Created `backend/app/api/business.py`.
+    - **Endpoints**: `POST /profile`, `GET /profile`.
+    - **Role**: Restricted to `BUSINESS` role.
+    - **Router**: Registered at `/api/v1/business`.
+
+#### Step 5: Final Lock
+37. **Module Completion**: Created `docs/Completion Lock Docs/07_Phase1_BusinessProfile_Module_Lock.md`.
+
+---
+
+## 📅 SECTION 5.6: [Next Module Name]
 **Context**: [TBD]
 **Status**: 🕒 PENDING
-- [ ] **Business Entity Module**
 - [ ] **Income & Expense Intake Module**
 - [ ] **Deterministic Compliance Engine**
 - [ ] **ITR Determination Logic**
