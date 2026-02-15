@@ -267,3 +267,31 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 
 ---
 
+### Module 5.9: Filing Case Engine (Data/Repo/Service/API) (Completed: 2026-02-15)
+**Objective**: strict State Machine to manage the lifecycle of an Income Tax Return (ITR) filing.
+
+#### Step 1: Data Layer
+53. **Schema**: Created `filing_cases` table.
+    - **Constraints**: Enforced 1:1 with `itr_determinations` and unique `(user_id, financial_year)`.
+    - **Migration**: `bf729ede8c50` (Manual cleanup of pre-existing conflict, then clean create).
+
+#### Step 2: Repository Layer
+54. **Persistence**: `FilingCaseRepository`.
+    - **Methods**: Pure CRUD for filing definitions.
+
+#### Step 3: Service Layer (State Machine)
+55. **Logic**: `FilingCaseService`.
+    - **Transitions**: DRAFT -> REVIEW -> LOCKED -> SUBMITTED.
+    - **Validation**: Enforced `ITRDetermination.is_locked` checks.
+    - **Dependencies**: Cross-module validation using `ITRDeterminationRepository`.
+
+#### Step 4: API Layer
+56. **Interface**: `backend/app/api/filing.py`.
+    - **Endpoints**: `/`, `/transition`.
+    - **Security**: RBAC (Individual/Business).
+
+#### Step 5: Final Lock
+57. **Module Completion**: Created `docs/Completion Lock Docs/11_Phase1_Filing_Case_Engine_Lock.md`.
+
+---
+

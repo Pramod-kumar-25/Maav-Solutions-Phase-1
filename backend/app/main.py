@@ -17,6 +17,7 @@ app.include_router(business.router, prefix="/api/v1/business", tags=["Business P
 app.include_router(financials.router, prefix="/api/v1/financial", tags=["Financial Ledger"])
 app.include_router(compliance.router, prefix="/api/v1/compliance", tags=["Compliance Engine"])
 app.include_router(itr.router, prefix="/api/v1/itr", tags=["ITR Determination"])
+app.include_router(filing.router, prefix="/api/v1/filing", tags=["Filing Case Workflow"])
 
 @app.get("/api/v1/health")
 async def health_check(db: AsyncSession = Depends(get_db)):

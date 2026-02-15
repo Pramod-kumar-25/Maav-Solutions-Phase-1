@@ -160,3 +160,16 @@ def get_itr_service(
     itr_repo: ITRDeterminationRepository = Depends(get_itr_repository)
 ) -> ITRDeterminationService:
     return ITRDeterminationService(financial_repo, itr_repo)
+
+# Filing Case Module Dependencies
+from app.repositories.filing_repository import FilingCaseRepository
+from app.services.filing_service import FilingCaseService
+
+def get_filing_repository() -> FilingCaseRepository:
+    return FilingCaseRepository()
+
+def get_filing_service(
+    filing_repo: FilingCaseRepository = Depends(get_filing_repository),
+    itr_repo: ITRDeterminationRepository = Depends(get_itr_repository)
+) -> FilingCaseService:
+    return FilingCaseService(filing_repo, itr_repo)

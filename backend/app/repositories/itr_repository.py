@@ -11,6 +11,15 @@ class ITRDeterminationRepository:
     Strictly no business logic.
     """
 
+    async def get_by_id(self, session: AsyncSession, determination_id: UUID) -> Optional[ITRDetermination]:
+        """
+        Retrieve ITR determination by ID.
+        """
+        result = await session.execute(
+            select(ITRDetermination).where(ITRDetermination.id == determination_id)
+        )
+        return result.scalars().first()
+
     async def get_by_user_and_year(self, session: AsyncSession, user_id: UUID, financial_year: str) -> Optional[ITRDetermination]:
         """
         Retrieve ITR determination for a specific user and financial year.
