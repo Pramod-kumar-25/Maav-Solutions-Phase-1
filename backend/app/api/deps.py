@@ -13,6 +13,25 @@ from app.repositories.auth_repository import AuthRepository
 from app.services.auth_service import AuthService
 from app.core.exceptions import NotFoundError, UnauthorizedError, ValidationError
 
+# Evidence Module Dependencies
+from app.repositories.evidence_repository import EvidenceRepository
+from app.services.file_storage_service import FileStorageService
+from app.services.evidence_service import EvidenceService
+
+
+# Evidence Dependency Factories
+def get_evidence_repository() -> EvidenceRepository:
+    return EvidenceRepository()
+
+def get_file_storage_service() -> FileStorageService:
+    return FileStorageService()
+
+def get_evidence_service(
+    repo: EvidenceRepository = Depends(get_evidence_repository),
+    storage: FileStorageService = Depends(get_file_storage_service)
+) -> EvidenceService:
+    return EvidenceService(repo, storage)
+
 
 # Constants
 ALGORITHM = "HS256"
@@ -189,9 +208,10 @@ def get_filing_repository() -> FilingCaseRepository:
 def get_filing_service(
     filing_repo: FilingCaseRepository = Depends(get_filing_repository),
     itr_repo: ITRDeterminationRepository = Depends(get_itr_repository),
-    audit_service: AuditService = Depends(get_audit_service)
+    audit_service: AuditService = Depends(get_audit_service),
+    evidence_service: EvidenceService = Depends(get_evidence_service)
 ) -> FilingCaseService:
-    return FilingCaseService(filing_repo, itr_repo, audit_service)
+    return FilingCaseService(filing_repo, itr_repo, audit_service, evidence_service)
 
 # Consent & CA Assignment Module Dependencies
 from app.repositories.consent_repository import ConsentRepository, CAAssignmentRepository, ConsentAuditRepository
@@ -209,18 +229,20 @@ def get_consent_audit_repository() -> ConsentAuditRepository:
 
 def get_consent_service(
     consent_repo: ConsentRepository = Depends(get_consent_repository),
-    audit_repo: ConsentAuditRepository = Depends(get_consent_audit_repository)
+    audit_repo: ConsentAuditRepository = Depends(get_consent_audit_repository),
+    evidence_service: EvidenceService = Depends(get_evidence_service)
 ) -> ConsentService:
-    return ConsentService(consent_repo, audit_repo)
+    return ConsentService(consent_repo, audit_repo, evidence_service)
 
 def get_ca_assignment_service(
     consent_repo: ConsentRepository = Depends(get_consent_repository),
     assignment_repo: CAAssignmentRepository = Depends(get_ca_assignment_repository),
     audit_repo: ConsentAuditRepository = Depends(get_consent_audit_repository),
     auth_repo: AuthRepository = Depends(get_auth_repository),
-    filing_repo: FilingCaseRepository = Depends(get_filing_repository)
+    filing_repo: FilingCaseRepository = Depends(get_filing_repository),
+    evidence_service: EvidenceService = Depends(get_evidence_service)
 ) -> CAAssignmentService:
-    return CAAssignmentService(consent_repo, assignment_repo, audit_repo, auth_repo, filing_repo)
+    return CAAssignmentService(consent_repo, assignment_repo, audit_repo, auth_repo, filing_repo, evidence_service)
 
 async def require_valid_ca_assignment(
     filing_id: UUID,

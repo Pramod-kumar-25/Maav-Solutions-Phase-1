@@ -7,6 +7,8 @@ from app.models.consent import ConsentArtifact, ConsentAuditLog
 from app.repositories.consent_repository import ConsentRepository, ConsentAuditRepository
 from app.core.exceptions import NotFoundError, UnauthorizedError, ValidationError
 
+from app.services.evidence_service import EvidenceService
+
 class ConsentService:
     """
     Manages Consent Lifecycle.
@@ -16,10 +18,12 @@ class ConsentService:
     def __init__(
         self,
         consent_repo: ConsentRepository,
-        audit_repo: ConsentAuditRepository
+        audit_repo: ConsentAuditRepository,
+        evidence_service: EvidenceService
     ):
         self.consent_repo = consent_repo
         self.audit_repo = audit_repo
+        self.evidence_service = evidence_service
 
     async def grant_consent(
         self,
@@ -46,6 +50,13 @@ class ConsentService:
         )
         
         created_consent = await self.consent_repo.create_consent(session, consent)
+        
+        # Evidence Capture (Atomic)
+        await self.evidence_service.capture_evidence(
+            session=session,
+            payload=created_consent, # Pydantic/ORM model handling in service
+            action_urn=f"urn:consent:{created_consent.id}:grant"
+        )
         
         # Audit Log
         await self.audit_repo.create_log(session, ConsentAuditLog(
@@ -79,6 +90,18 @@ class ConsentService:
             raise ValidationError("Consent is not active")
 
         await self.consent_repo.update_status(session, consent_id, "REVOKED")
+        
+        # Evidence Capture (Atomic)
+        await self.evidence_service.capture_evidence(
+            session=session,
+            payload={
+                "consent_id": str(consent_id),
+                "revoked_by": str(user_id),
+                "reason": reason,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            },
+            action_urn=f"urn:consent:{consent_id}:revoke"
+        )
         
         # Audit Log
         await self.audit_repo.create_log(session, ConsentAuditLog(

@@ -331,3 +331,29 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 #### Step 6: Final Lock
 - **Module Completion**: Created `docs/Completion Lock Docs/13_Phase1_CA_Assignment_Lock.md`.
 
+---
+
+### Module 5.12: Evidence Record Management (Completed: 2026-02-16)
+**Objective**: Implement the "Digital Vault" for cryptographic verification of critical actions.
+
+#### Step 1: Data Layer
+- **Model**: Created `EvidenceRecord` aligned with existing `evidence_records` table.
+- **Repository**: Implemented `EvidenceRepository` (Pure DA).
+- **Storage**: Implemented `FileStorageService` for local blob management.
+
+#### Step 2: Service Layer
+- **Core Logic**: `EvidenceService` implemented.
+    -   **Canonicalization**: JSON `sort_keys=True`.
+    -   **Hashing**: SHA-256.
+    -   **Design**: Transaction-agnostic (relies on caller).
+
+#### Step 3: Integration (Hooks)
+-   **Consent**: Hooked into `grant_consent` & `revoke_consent`.
+-   **Assignment**: Hooked into `assign_ca`.
+-   **Filing**: Hooked into `transition_state` (SUBMITTED).
+-   **Atomicity**: Enforced via existing transaction boundaries.
+
+#### Step 4: Final Lock
+-   **Lock**: `docs/Completion Lock Docs/14_Phase1_Evidence_Management_Lock.md` created.
+
+

@@ -9,6 +9,8 @@ from app.repositories.auth_repository import AuthRepository
 from app.repositories.filing_repository import FilingCaseRepository
 from app.core.exceptions import NotFoundError, UnauthorizedError, ValidationError
 
+from app.services.evidence_service import EvidenceService
+
 class CAAssignmentService:
     """
     Manages CA Assignments.
@@ -21,13 +23,15 @@ class CAAssignmentService:
         assignment_repo: CAAssignmentRepository,
         audit_repo: ConsentAuditRepository,
         auth_repo: AuthRepository,
-        filing_repo: FilingCaseRepository
+        filing_repo: FilingCaseRepository,
+        evidence_service: EvidenceService
     ):
         self.consent_repo = consent_repo
         self.assignment_repo = assignment_repo
         self.audit_repo = audit_repo
         self.auth_repo = auth_repo
         self.filing_repo = filing_repo
+        self.evidence_service = evidence_service
 
     async def assign_ca(
         self,
@@ -93,6 +97,13 @@ class CAAssignmentService:
         )
         
         created_assignment = await self.assignment_repo.create_assignment(session, assignment)
+        
+        # Evidence Capture (Atomic)
+        await self.evidence_service.capture_evidence(
+            session=session,
+            payload=created_assignment,
+            action_urn=f"urn:assignment:{created_assignment.id}:assign"
+        )
         
         # Audit Log (on Consent)
         await self.audit_repo.create_log(session, ConsentAuditLog(

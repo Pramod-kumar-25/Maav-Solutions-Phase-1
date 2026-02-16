@@ -8,6 +8,8 @@ from app.repositories.filing_repository import FilingCaseRepository
 from app.repositories.itr_repository import ITRDeterminationRepository
 from app.services.audit_service import AuditService
 
+from app.services.evidence_service import EvidenceService
+
 class FilingCaseService:
     """
     Filing Case Workflow Engine.
@@ -24,11 +26,13 @@ class FilingCaseService:
         self, 
         filing_repo: FilingCaseRepository,
         itr_repo: ITRDeterminationRepository,
-        audit_service: AuditService
+        audit_service: AuditService,
+        evidence_service: EvidenceService
     ):
         self.filing_repo = filing_repo
         self.itr_repo = itr_repo
         self.audit_service = audit_service
+        self.evidence_service = evidence_service
         
         # Strict Forward-Only State Machine
         self._transitions: Dict[str, Set[str]] = {
@@ -147,6 +151,29 @@ class FilingCaseService:
                 updates["submitted_at"] = datetime.now(timezone.utc)
 
             updated_case = await self.filing_repo.update_case(session, case, updates)
+            
+            # Evidence Capture (Atomic) for SUBMISSION
+            if next_state == self.STATE_SUBMITTED:
+                determination = await self.itr_repo.get_by_id(session, case.itr_determination_id)
+                await self.evidence_service.capture_evidence(
+                    session=session,
+                    payload={
+                        "filing_case": {
+                            "id": str(updated_case.id),
+                            "financial_year": updated_case.financial_year,
+                            "submitted_at": updated_case.submitted_at.isoformat() if updated_case.submitted_at else None,
+                        },
+                        "itr_determination": {
+                            "id": str(determination.id) if determination else None,
+                            "itr_type": determination.itr_type if determination else None
+                        },
+                        "actor_id": str(user_id),
+                        "actor_role": actor_role,
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    },
+                    action_urn=f"urn:filing:{updated_case.id}:submission",
+                    retention_years=7
+                )
             
             # 4. Audit Log
             await self.audit_service.log_action(
