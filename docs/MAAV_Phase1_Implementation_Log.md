@@ -356,4 +356,27 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 #### Step 4: Final Lock
 -   **Lock**: `docs/Completion Lock Docs/14_Phase1_Evidence_Management_Lock.md` created.
 
+---
+
+### Module 5.13: CA Workflow & Filing Logic (Completed: 2026-02-16)
+**Objective**: Implement CA-managed filing workflow (Option B) with strict Taxpayer Approval.
+
+#### Step 1: Design & Constraints
+-   Accepted "Zero Migration" constraint.
+-   Reused states: `DRAFT` -> `READY_FOR_REVIEW` -> `LOCKED` (Approved) -> `SUBMITTED`.
+
+#### Step 2: Implementation
+-   **Models**: Added `UserConfirmation` & `SubmissionRecord` to `filing.py`.
+-   **Repository**: Created `ConfirmationRepository`.
+-   **Service**:
+    -   Implemented `approve_filing` (Taxpayer Action).
+    -   Enforced Confirmation check in `transition_state` (Submission).
+    -   **Refactoring**: Removed transaction boundaries; Enforced Role-Based Transitions; Standardized Exceptions.
+-   **Evidence**: Linked Submission Evidence to Approval Confirmation.
+-   **Evidence**: Linked Submission Evidence to Approval Confirmation.
+
+#### Step 4: Final Lock
+-   **Lock**: `docs/Completion Lock Docs/16_Phase1_CA_Workflow_Implementation_Lock.md` created.
+
+
 

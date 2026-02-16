@@ -200,18 +200,23 @@ def get_itr_service(
 
 # Filing Case Module Dependencies
 from app.repositories.filing_repository import FilingCaseRepository
+from app.repositories.confirmation_repository import ConfirmationRepository
 from app.services.filing_service import FilingCaseService
 
 def get_filing_repository() -> FilingCaseRepository:
     return FilingCaseRepository()
 
+def get_confirmation_repository() -> ConfirmationRepository:
+    return ConfirmationRepository()
+
 def get_filing_service(
     filing_repo: FilingCaseRepository = Depends(get_filing_repository),
     itr_repo: ITRDeterminationRepository = Depends(get_itr_repository),
     audit_service: AuditService = Depends(get_audit_service),
-    evidence_service: EvidenceService = Depends(get_evidence_service)
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+    confirmation_repo: ConfirmationRepository = Depends(get_confirmation_repository)
 ) -> FilingCaseService:
-    return FilingCaseService(filing_repo, itr_repo, audit_service, evidence_service)
+    return FilingCaseService(filing_repo, itr_repo, audit_service, evidence_service, confirmation_repo)
 
 # Consent & CA Assignment Module Dependencies
 from app.repositories.consent_repository import ConsentRepository, CAAssignmentRepository, ConsentAuditRepository
