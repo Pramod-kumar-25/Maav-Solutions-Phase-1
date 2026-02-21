@@ -51,3 +51,42 @@ async def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+from pydantic import BaseModel
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token_endpoint(
+    req: RefreshRequest,
+    session: AsyncSession = Depends(get_db),
+    service: AuthService = Depends(get_auth_service)
+):
+    """
+    Refresh access token using a valid refresh token.
+    """
+    try:
+        return await service.refresh_access_token(session, req.refresh_token)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+@router.post("/logout", status_code=status.HTTP_200_OK)
+async def logout_endpoint(
+    req: RefreshRequest,
+    session: AsyncSession = Depends(get_db),
+    service: AuthService = Depends(get_auth_service)
+):
+    """
+    Invalidate the current auth session.
+    """
+    try:
+        await service.logout_user(session, req.refresh_token)
+        return {"message": "Successfully logged out"}
+    except Exception:
+        # Don't leak information about token validity on logout
+        return {"message": "Successfully logged out"}

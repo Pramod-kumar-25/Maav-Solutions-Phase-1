@@ -376,5 +376,27 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 #### Step 4: Final Lock
 -   **Lock**: `docs/Completion Lock Docs/16_Phase1_CA_Workflow_Implementation_Lock.md` created.
 
+---
+
+### Module 6.1: JWT & Session Architecture (Completed: 2026-02-21)
+**Objective**: Hardened implementation of JWT access tokens and cryptographically secure refresh token sessions.
+
+#### Step 1: Data Layer & Config
+- **Schema Update**: Added `refresh_token_hash` and `status` to `auth_sessions` (Alembic migration).
+- **Hardening**: `config.py` uses Pydantic `@model_validator` to reject default `JWT_SECRET_KEY` in `production`.
+
+#### Step 2: Implementation (AuthService)
+- **Token Design**: 15-minute Access Tokens (stateless) with `sid` and `jti`; 7-day Refresh Tokens (stateful).
+- **Storage**: Opaque 64-byte refresh tokens; only SHA-256 hashes are stored.
+- **Atomic Rotation & Replay Detection**: Refresh flow uses strict atomic transactions. Reuse of a consumed refresh token immediately revokes the session.
+- **Typed Exceptions**: Replaced `ValueError` with `UnauthorizedError`, `NotFoundError`, and `ValidationError`.
+
+#### Step 3: API Layer
+- **Dependencies**: `get_current_user` extracts `sid`. Created `require_active_session` for high-security DB-backed session checks.
+- **Endpoints**: Added `/refresh` and `/logout` to `auth.py`.
+
+#### Step 4: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/17_Phase1_JWT_Session_Architecture_Lock.md`.
+
 
 

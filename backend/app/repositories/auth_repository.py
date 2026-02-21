@@ -59,3 +59,19 @@ class AuthRepository:
         await session.flush()
         await session.refresh(auth_session)
         return auth_session
+
+    async def get_session_by_hash(self, session: AsyncSession, token_hash: str) -> AuthSession | None:
+        """
+        Retrieve an AuthSession by its refresh token hash.
+        """
+        stmt = select(AuthSession).where(AuthSession.refresh_token_hash == token_hash)
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
+    async def get_session_by_id(self, session: AsyncSession, session_id: UUID) -> AuthSession | None:
+        """
+        Retrieve an AuthSession by its ID.
+        """
+        stmt = select(AuthSession).where(AuthSession.id == session_id)
+        result = await session.execute(stmt)
+        return result.scalars().first()

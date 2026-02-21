@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import PostgresDsn, computed_field
+from pydantic import PostgresDsn, computed_field, model_validator
 from typing import Optional
 
 class Settings(BaseSettings):
@@ -12,7 +12,11 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "MaaV Solutions Phase-1"
     API_V1_STR: str = "/api/v1"
     
-    SECRET_KEY: str = "YOUR_SECRET_KEY"
+    JWT_SECRET_KEY: str = "YOUR_SUPER_SECRET_JWT_KEY_HERE"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
     APP_ENV: str = "development"
     LOG_LEVEL: str = "INFO"
 
@@ -33,5 +37,12 @@ class Settings(BaseSettings):
             )
              
         return url
+
+    @model_validator(mode='after')
+    def validate_production_secrets(self):
+        if self.APP_ENV.lower() == "production":
+            if not self.JWT_SECRET_KEY or self.JWT_SECRET_KEY == "YOUR_SUPER_SECRET_JWT_KEY_HERE":
+                raise RuntimeError("JWT_SECRET_KEY must be set securely in production")
+        return self
 
 settings = Settings()

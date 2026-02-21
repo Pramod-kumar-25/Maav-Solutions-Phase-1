@@ -56,6 +56,8 @@ class AuthSession(Base):
     ip_address = Column(INET, nullable=True)
     session_start = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     session_expiry = Column(DateTime(timezone=True), nullable=False)
+    refresh_token_hash = Column(Text, nullable=False)
+    status = Column(Text, nullable=False, server_default=text("'ACTIVE'"))
 
     # Relationship
     user = relationship("User", back_populates="sessions")

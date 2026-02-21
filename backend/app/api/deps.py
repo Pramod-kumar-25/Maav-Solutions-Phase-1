@@ -33,9 +33,6 @@ def get_evidence_service(
     return EvidenceService(repo, storage)
 
 
-# Constants
-ALGORITHM = "HS256"
-
 # OAuth2 Scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -66,9 +63,10 @@ async def get_current_user(
     )
     
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         user_id_str: str = payload.get("sub")
-        if user_id_str is None:
+        sid_str: str = payload.get("sid")
+        if user_id_str is None or sid_str is None:
             raise credentials_exception
         user_id = UUID(user_id_str)
     except (JWTError, ValidationError, ValueError):
@@ -85,7 +83,9 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
         )
-        
+    
+    # Attach sid for optional active session validation downstream
+    setattr(user, 'session_id', sid_str)
     return user
 
 # RBAC Foundation
@@ -287,3 +287,37 @@ async def require_valid_ca_assignment(
             status_code=status.HTTP_403_FORBIDDEN, # Access Control Failures usually 403
             detail=str(e)
         )
+
+async def require_active_session(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    repo: AuthRepository = Depends(get_auth_repository)
+) -> User:
+    """
+    Dependency for high-security routes.
+    Ensures the user's current session is active in the database.
+    """
+    if not hasattr(current_user, 'session_id') or not current_user.session_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session ID missing",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    try:
+        session_id = UUID(current_user.session_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Session ID",
+        )
+
+    auth_session = await repo.get_session_by_id(session, session_id)
+    if not auth_session or auth_session.status != 'ACTIVE':
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session revoked or expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    return current_user

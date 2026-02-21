@@ -35,7 +35,9 @@ CREATE TABLE auth_sessions (
     device_id TEXT,
     ip_address INET,
     session_start TIMESTAMPTZ NOT NULL DEFAULT now(),
-    session_expiry TIMESTAMPTZ NOT NULL
+    session_expiry TIMESTAMPTZ NOT NULL,
+    refresh_token_hash TEXT NOT NULL,
+    status TEXT CHECK (status IN ('ACTIVE','REVOKED','EXPIRED')) DEFAULT 'ACTIVE'
 );
 
 CREATE INDEX idx_auth_user ON auth_sessions(user_id);
