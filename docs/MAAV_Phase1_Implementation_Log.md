@@ -371,8 +371,6 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 -   **Service**:
     -   Implemented `approve_filing` (Taxpayer Action).
     -   Enforced Confirmation check in `transition_state` (Submission).
-    -   **Refactoring**: Removed transaction boundaries; Enforced Role-Based Transitions; Standardized Exceptions.
--   **Evidence**: Linked Submission Evidence to Approval Confirmation.
 -   **Evidence**: Linked Submission Evidence to Approval Confirmation.
 
 #### Step 4: Final Lock
