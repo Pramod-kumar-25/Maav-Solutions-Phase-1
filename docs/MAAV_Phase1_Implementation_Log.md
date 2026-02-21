@@ -398,5 +398,27 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 #### Step 4: Final Lock
 - **Module Completion**: Created `docs/Completion Lock Docs/17_Phase1_JWT_Session_Architecture_Lock.md`.
 
+---
+
+### Module 6.2: Password Security & Account Protection (Completed: 2026-02-21)
+**Objective**: Build fintech-grade credential brute-force protection, strength policies, and secure password rotation flows.
+
+#### Step 1: Data Layer & Config
+- **Schema Update**: Generated manual Alembic migration to add `last_failed_login_at` to `user_credentials`.
+
+#### Step 2: Policy Enforcement
+- **Validation**: Enforced strict password strength (12 chars, upper, lower, int, special chars, stripped whitespace) directly inside Pydantic schemas (`UserCreate`, `PasswordChange`).
+
+#### Step 3: Brute-Force & Anti-Enumeration (AuthService)
+- **Lockout State**: Implemented deterministic 15-minute temporary lockout after 5 failed attempts.
+- **Race Condition Safety**: Applied `.with_for_update()` row-level locking in `AuthRepository` to eliminate "lost update" race conditions when incrementing the `failed_attempts` tracking counter.
+- **Timing Parity**: Injected "dummy" `bcrypt` hash validation for both "User Not Found" and "Cooldown Active" branches to prevent account enumeration.
+
+#### Step 4: Password Change Flow
+- **Revocation Safety**: Implemented secure `change_password` endpoint that forcibly updates `status = REVOKED` for all of the user's parallel active sessions.
+
+#### Step 5: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/18_Phase1_Password_Security_Lock.md`.
+
 
 

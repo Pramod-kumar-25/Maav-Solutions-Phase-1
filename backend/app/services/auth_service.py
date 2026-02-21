@@ -7,6 +7,7 @@ from app.utils.security import hash_password, verify_password
 from app.core.config import settings
 from datetime import datetime, timedelta, timezone
 from jose import jwt
+from passlib.context import CryptContext
 from app.core.exceptions import NotFoundError, UnauthorizedError, ValidationError
 import secrets
 import hashlib
@@ -15,6 +16,10 @@ from uuid import uuid4, UUID
 class AuthService:
     def __init__(self, auth_repo: AuthRepository):
         self.auth_repo = auth_repo
+        # Initialize a dedicated context for dummy hashing to block timing attacks
+        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        # Pre-calculated dummy hash for a realistic delay
+        self.dummy_hash = self.pwd_context.hash("dummy_password_for_timing_delay")
 
     def create_access_token(self, data: dict, expires_delta: timedelta | None = None) -> str:
         """
@@ -71,23 +76,64 @@ class AuthService:
 
     async def login_user(self, session: AsyncSession, user_login: UserLogin) -> Token:
         """
-        Orchestrates user login with transactional session creation.
+        Orchestrates user login with anti-enumeration, brute-force cooldown, and transactional session creation.
         """
-        # 1. Find User & Verify (Read-only)
+        generic_error_msg = "Incorrect email or password. If you have reached maximum attempts, please try again in 15 minutes."
+        cooldown_minutes = 15
+        max_attempts = 5
+        
+        # 1. Fetch User (Read-only)
         user = await self.auth_repo.get_user_by_email(session, user_login.email)
+        
+        # Anti-Enumeration: If no user, perform dummy hash to simulate DB+Hash latency
         if not user or user.account_status != 'ACTIVE':
-             raise UnauthorizedError("Invalid credentials")
+            self.pwd_context.verify(user_login.password, self.dummy_hash)
+            raise UnauthorizedError(generic_error_msg)
 
         credentials = await self.auth_repo.get_credentials_by_user_id(session, user.id)
-        if not credentials or not verify_password(user_login.password, credentials.password_hash):
-            raise UnauthorizedError("Invalid credentials")
+        if not credentials:
+             self.pwd_context.verify(user_login.password, self.dummy_hash)
+             raise UnauthorizedError(generic_error_msg)
 
-        # 2. Create Session (Transactional Write)
-        session_expiry = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        # 2. Check Cooldown Status
+        now_utc = datetime.now(timezone.utc)
+        if credentials.failed_attempts >= max_attempts and credentials.last_failed_login_at:
+            time_since_last_fail = now_utc - credentials.last_failed_login_at
+            if time_since_last_fail < timedelta(minutes=cooldown_minutes):
+                # Cooldown active. Simulate hash delay to hide lockout status.
+                self.pwd_context.verify(user_login.password, self.dummy_hash)
+                raise UnauthorizedError(generic_error_msg)
+
+        # 3. Verify Password
+        is_valid = verify_password(user_login.password, credentials.password_hash)
+
+        if not is_valid:
+            # 4. Handle Failed Attempt (Atomic Write with Row Lock)
+            async with session.begin():
+                # Re-fetch credentials inside transaction with a row-level lock to prevent lost updates
+                tx_credentials = await self.auth_repo.get_credentials_by_user_id_for_update(session, user.id)
+                # Reset counter if previous cooldown expired
+                if tx_credentials.failed_attempts >= max_attempts:
+                    tx_credentials.failed_attempts = 1
+                else:
+                    tx_credentials.failed_attempts += 1
+                
+                tx_credentials.last_failed_login_at = now_utc
+                # NOTE: Audit logging (LOGIN_FAILED / TEMPORARY_LOCKOUT_TRIGGERED) should hook here
+            raise UnauthorizedError(generic_error_msg)
+
+        # 5. Handle Successful Login & Session Creation (Atomic Write with Row Lock)
+        session_expiry = now_utc + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         raw_refresh_token = secrets.token_hex(64)
         refresh_token_hash = hashlib.sha256(raw_refresh_token.encode()).hexdigest()
         
         async with session.begin():
+            # Apply row-level lock for consistency
+            tx_credentials = await self.auth_repo.get_credentials_by_user_id_for_update(session, user.id)
+            tx_credentials.failed_attempts = 0
+            tx_credentials.last_failed_login_at = None
+            tx_credentials.last_login_at = now_utc
+
             auth_session = AuthSession(
                 user_id=user.id,
                 auth_method="PASSWORD",
@@ -99,7 +145,7 @@ class AuthService:
 
         full_refresh_token = f"{created_session.id}:{raw_refresh_token}"
 
-        # 3. Generate Token (Real JWT)
+        # 6. Generate Token (Real JWT)
         access_token = self.create_access_token(
             data={
                 "sub": str(user.id),
@@ -195,3 +241,35 @@ class AuthService:
             if auth_session and auth_session.status == 'ACTIVE':
                 if auth_session.refresh_token_hash == token_hash:
                     auth_session.status = "REVOKED"
+
+    async def change_password(
+        self, 
+        session: AsyncSession, 
+        user_id: UUID, 
+        current_password: str, 
+        new_password: str, 
+        active_session_id: UUID
+    ):
+        """
+        Securely changes the user's password and revokes all other active sessions.
+        """
+        if current_password == new_password:
+            raise ValidationError("New password cannot be the same as the current password")
+            
+        credentials = await self.auth_repo.get_credentials_by_user_id(session, user_id)
+        if not credentials or not verify_password(current_password, credentials.password_hash):
+            raise UnauthorizedError("Incorrect current password")
+            
+        hashed_new_pwd = hash_password(new_password)
+        
+        async with session.begin():
+            # 1. Update password
+            tx_credentials = await self.auth_repo.get_credentials_by_user_id(session, user_id)
+            tx_credentials.password_hash = hashed_new_pwd
+            
+            # 2. Invalidate all other active sessions
+            active_sessions = await self.auth_repo.get_active_sessions_by_user_id(session, user_id)
+            for s in active_sessions:
+                if s.id != active_session_id:
+                    s.status = 'REVOKED'
+            # NOTE: Logging for SESSIONS_REVOKED / PASSWORD_CHANGED should hook here

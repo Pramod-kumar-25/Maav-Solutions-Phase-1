@@ -35,6 +35,7 @@ class UserCredentials(Base):
     is_active = Column(Boolean, nullable=False, server_default=text("true"))
     failed_attempts = Column(Integer, nullable=False, server_default=text("0"))
     last_login_at = Column(DateTime(timezone=True), nullable=True)
+    last_failed_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     # Constraints from DB

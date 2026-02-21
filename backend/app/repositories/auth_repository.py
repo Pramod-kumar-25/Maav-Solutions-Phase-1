@@ -42,6 +42,14 @@ class AuthRepository:
         result = await session.execute(stmt)
         return result.scalars().first()
 
+    async def get_credentials_by_user_id_for_update(self, session: AsyncSession, user_id: UUID) -> UserCredentials | None:
+        """
+        Retrieve credentials for a specific user, locking the row to prevent lost update race conditions.
+        """
+        stmt = select(UserCredentials).where(UserCredentials.user_id == user_id).with_for_update()
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
     async def create_user_credentials(self, session: AsyncSession, credentials: UserCredentials) -> UserCredentials:
         """
         Persist new UserCredentials.
@@ -75,3 +83,14 @@ class AuthRepository:
         stmt = select(AuthSession).where(AuthSession.id == session_id)
         result = await session.execute(stmt)
         return result.scalars().first()
+
+    async def get_active_sessions_by_user_id(self, session: AsyncSession, user_id: UUID) -> list[AuthSession]:
+        """
+        Retrieve all active sessions for a user (useful for revocation).
+        """
+        stmt = select(AuthSession).where(
+            AuthSession.user_id == user_id,
+            AuthSession.status == 'ACTIVE'
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
