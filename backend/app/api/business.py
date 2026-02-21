@@ -21,13 +21,7 @@ async def create_business_profile(
     Create a new Business Profile.
     Restricted to users with 'BUSINESS' role.
     """
-    try:
-        return await service.create_profile(db, current_user.id, profile_in)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    return await service.create_profile(db, current_user.id, profile_in)
 
 @router.get("/profile", response_model=BusinessProfileResponse)
 async def get_business_profile(

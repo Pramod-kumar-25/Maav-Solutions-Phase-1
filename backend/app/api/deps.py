@@ -266,27 +266,11 @@ async def require_valid_ca_assignment(
             detail="Only CAs can access this resource"
         )
 
-    try:
-        return await service.validate_ca_access(
-            session=session,
-            filing_id=filing_id,
-            ca_user_id=current_user.id
-        )
-    except UnauthorizedError as e:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(e)
-        )
-    except NotFoundError as e:
-         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except ValidationError as e:
-         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, # Access Control Failures usually 403
-            detail=str(e)
-        )
+    return await service.validate_ca_access(
+        session=session,
+        filing_id=filing_id,
+        ca_user_id=current_user.id
+    )
 
 async def require_active_session(
     current_user: User = Depends(get_current_user),

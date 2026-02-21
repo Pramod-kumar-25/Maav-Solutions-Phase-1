@@ -420,5 +420,40 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 #### Step 5: Final Lock
 - **Module Completion**: Created `docs/Completion Lock Docs/18_Phase1_Password_Security_Lock.md`.
 
+---
+
+### Module 6.3: Authentication Rate Limiting (Completed: 2026-02-21)
+**Objective**: Build a multi-vector, sliding-window rate limiting perimeter to defend authentication endpoints against bots and credential stuffing.
+
+#### Step 1: Core Limiter Implementation
+- **Logic**: Built `InMemoryRateLimiter` using `asyncio.Lock` for concurrency and active memory management (deleting empty coordinate keys after cleanup) to prevent memory leaks.
+- **Fail-Open**: Implemented exception handling to bypass the limiter if internal state errors occur, preventing generalized login outages.
+
+#### Step 2: Routing Integration
+- **Dependency Map**: Injected rate limiting purely at the API Routing layer via FastAPI `Depends`, ensuring `AuthService` remains stateless and unaltered.
+- **Vectors**: Included IP+Normalized Email for Login, IP+SessionID for Refresh, IP for Registration, and UserID for Password Change.
+- **Anti-Enumeration**: Masked HTTP responses with generic `HTTP 429` details and suppressed standard limit-tracking headers.
+
+#### Step 3: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/19_Phase1_Rate_Limiting_Lock.md`.
+
+---
+
+### Module 6.4: Centralized Exception Handling Standardization (Completed: 2026-02-21)
+**Objective**: Build a predictable, standardized global error boundary preventing stack trace leakage and decoupling domain logic from HTTP status management.
+
+#### Step 1: Exception Handler Implementation
+- **Envelope Formatting**: Built `create_error_envelope()` adhering to a strict schema (`code`, `message`, `timestamp`, `path`).
+- **Deterministic Mapping**: Designed an explicit `HTTP_STATUS_TO_CODE_MAP` dictionary for consistent translation.
+- **Log Management**: Separated 4xx (`INFO`) from 5xx (`ERROR` + Traceback) error logs to ensure observability without client leakage.
+
+#### Step 2: API & Service Layer Purity Refactoring
+- **Service Layer**: Migrated all explicit `ValueError` raises to the appropriate `app.core.exceptions` domain exceptions (`ValidationError`, `NotFoundError`, etc.) ensuring HTTP agnosticism.
+- **Router Layer**: Removed redundant `try...except` domain translation logic from `auth`, `taxpayer`, `business`, `financials`, `compliance`, `itr`, `filing`, and `consent` routers.
+- **Registration**: Registered the exception handler natively within the FastAPI `main.py` lifespan via `app.exception_handler`.
+
+#### Step 3: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/20_Phase1_Centralized_Exception_Handling_Lock.md`.
+
 
 

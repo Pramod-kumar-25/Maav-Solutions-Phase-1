@@ -39,15 +39,12 @@ async def evaluate_compliance(
     """
     check_compliance_access(current_user)
     
-    try:
-        await service.evaluate_user(
-            session=session,
-            user_id=current_user.id,
-            financial_year=request.financial_year
-        )
-        return {"message": "Compliance evaluation completed successfully."}
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    await service.evaluate_user(
+        session=session,
+        user_id=current_user.id,
+        financial_year=request.financial_year
+    )
+    return {"message": "Compliance evaluation completed successfully."}
 
 @router.get("/", response_model=List[ComplianceFlagResponse])
 async def get_compliance_flags(
@@ -77,8 +74,4 @@ async def resolve_flag(
     """
     check_compliance_access(current_user)
     
-    try:
-        return await service.resolve_flag(session, current_user.id, flag_id, request.resolution_notes)
-    except ValueError as e:
-        status_code = status.HTTP_404_NOT_FOUND if "not found" in str(e) else status.HTTP_403_FORBIDDEN
-        raise HTTPException(status_code=status_code, detail=str(e))
+    return await service.resolve_flag(session, current_user.id, flag_id, request.resolution_notes)

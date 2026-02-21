@@ -28,14 +28,8 @@ async def create_taxpayer_profile(
     - **Calculates**: Residential Status automatically
     - **Constraint**: One profile per user
     """
-    try:
-        profile = await service.create_profile(session, current_user.id, profile_in)
-        return profile
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    profile = await service.create_profile(session, current_user.id, profile_in)
+    return profile
 
 @router.get(
     "/profile",
@@ -52,8 +46,6 @@ async def get_my_taxpayer_profile(
     """
     profile = await service.get_profile(session, current_user.id)
     if not profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Taxpayer profile not found"
-        )
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Taxpayer profile not found")
     return profile

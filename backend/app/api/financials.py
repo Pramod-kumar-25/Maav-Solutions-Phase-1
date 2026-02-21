@@ -35,13 +35,9 @@ async def create_financial_entry(
     Allowed Roles: INDIVIDUAL, BUSINESS.
     """
     check_financial_access(current_user)
-    try:
-        # Pydantic model dump
-        entry_data = entry_in.model_dump()
-        
-        return await service.create_entry(session, current_user.id, entry_data)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    # Pydantic model dump
+    entry_data = entry_in.model_dump()
+    return await service.create_entry(session, current_user.id, entry_data)
 
 @router.get("/", response_model=List[FinancialEntryResponse])
 async def get_financial_entries(
@@ -55,13 +51,10 @@ async def get_financial_entries(
     Allowed Roles: INDIVIDUAL, BUSINESS.
     """
     check_financial_access(current_user)
-    try:
-        if entry_type:
-            return await service.get_user_entries_by_type(session, current_user.id, entry_type)
-        else:
-            return await service.get_user_entries(session, current_user.id)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    if entry_type:
+        return await service.get_user_entries_by_type(session, current_user.id, entry_type)
+    else:
+        return await service.get_user_entries(session, current_user.id)
 
 @router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_financial_entry(
@@ -76,12 +69,7 @@ async def delete_financial_entry(
     """
     check_financial_access(current_user)
     
-    try:
-        success = await service.delete_entry(session, current_user.id, entry_id)
-        if not success:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entry not found")
-    except ValueError as e:
-        # Catch ownership violation
-        if "Unauthorized" in str(e):
-             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    success = await service.delete_entry(session, current_user.id, entry_id)
+    if not success:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Entry not found")

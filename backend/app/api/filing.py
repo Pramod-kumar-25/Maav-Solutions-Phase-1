@@ -32,16 +32,12 @@ async def create_filing_case(
     """
     check_access(current_user)
     
-    try:
-        return await service.create_case(
-            session=session,
-            user_id=current_user.id,
-            financial_year=request.financial_year,
-            itr_determination_id=request.itr_determination_id
-        )
-    except ValueError as e:
-        # Map service errors to HTTP 400
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return await service.create_case(
+        session=session,
+        user_id=current_user.id,
+        financial_year=request.financial_year,
+        itr_determination_id=request.itr_determination_id
+    )
 
 @router.get("/", response_model=FilingCaseResponse)
 async def get_filing_case(
@@ -75,15 +71,9 @@ async def transition_state(
     """
     check_access(current_user)
     
-    try:
-        return await service.transition_state(
-            session=session,
-            user_id=current_user.id,
-            financial_year=financial_year,
-            next_state=transition.next_state
-        )
-    except ValueError as e:
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "not found" in str(e).lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        raise HTTPException(status_code=status_code, detail=str(e))
+    return await service.transition_state(
+        session=session,
+        user_id=current_user.id,
+        financial_year=financial_year,
+        next_state=transition.next_state
+    )

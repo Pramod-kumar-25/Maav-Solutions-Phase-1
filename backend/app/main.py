@@ -4,12 +4,15 @@ from sqlalchemy import text
 from .core.config import settings
 from .core.logging import logger
 from .core.dependencies import get_db
+from .core.exception_handlers import register_exception_handlers
 from .api import auth, taxpayer, business, financials, compliance, itr, filing, consent
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
+
+register_exception_handlers(app)
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(taxpayer.router, prefix="/api/v1/taxpayer", tags=["Taxpayer Profile"])

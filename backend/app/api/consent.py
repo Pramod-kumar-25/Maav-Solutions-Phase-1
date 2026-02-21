@@ -33,17 +33,14 @@ async def grant_consent(
     """
     check_taxpayer_access(current_user)
     
-    try:
-        async with session.begin():
-            return await service.grant_consent(
-                session=session,
-                user_id=current_user.id,
-                purpose=request.purpose,
-                scope=request.scope,
-                expiry_at=request.expiry_at
-            )
-    except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    async with session.begin():
+        return await service.grant_consent(
+            session=session,
+            user_id=current_user.id,
+            purpose=request.purpose,
+            scope=request.scope,
+            expiry_at=request.expiry_at
+        )
 
 @router.post("/{consent_id}/revoke", status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_consent(
@@ -58,20 +55,13 @@ async def revoke_consent(
     """
     check_taxpayer_access(current_user)
     
-    try:
-        async with session.begin():
-            await service.revoke_consent(
-                session=session,
-                consent_id=consent_id,
-                user_id=current_user.id,
-                reason=reason
-            )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except UnauthorizedError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
-    except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    async with session.begin():
+        await service.revoke_consent(
+            session=session,
+            consent_id=consent_id,
+            user_id=current_user.id,
+            reason=reason
+        )
 
 @router.post("/assignments", response_model=CAAssignmentResponse, status_code=status.HTTP_201_CREATED)
 async def assign_ca(
@@ -85,18 +75,11 @@ async def assign_ca(
     """
     check_taxpayer_access(current_user)
     
-    try:
-        async with session.begin():
-            return await service.assign_ca(
-                session=session,
-                filing_id=request.filing_id,
-                taxpayer_id=current_user.id,
-                ca_user_id=request.ca_user_id,
-                consent_id=request.consent_id
-            )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except UnauthorizedError as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
-    except ValidationError as e:
-         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    async with session.begin():
+        return await service.assign_ca(
+            session=session,
+            filing_id=request.filing_id,
+            taxpayer_id=current_user.id,
+            ca_user_id=request.ca_user_id,
+            consent_id=request.consent_id
+        )

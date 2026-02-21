@@ -34,17 +34,11 @@ async def determine_itr(
     """
     check_itr_access(current_user)
     
-    try:
-        return await service.determine_itr(
-            session=session,
-            user_id=current_user.id,
-            financial_year=request.financial_year
-        )
-    except ValueError as e:
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "locked" in str(e).lower():
-            status_code = status.HTTP_403_FORBIDDEN
-        raise HTTPException(status_code=status_code, detail=str(e))
+    return await service.determine_itr(
+        session=session,
+        user_id=current_user.id,
+        financial_year=request.financial_year
+    )
 
 @router.get("/", response_model=ITRDeterminationResponse)
 async def get_determination(
@@ -77,10 +71,4 @@ async def lock_determination(
     """
     check_itr_access(current_user)
     
-    try:
-        return await service.lock_determination(session, current_user.id, financial_year)
-    except ValueError as e:
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "not found" in str(e).lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        raise HTTPException(status_code=status_code, detail=str(e))
+    return await service.lock_determination(session, current_user.id, financial_year)
