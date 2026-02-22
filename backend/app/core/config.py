@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import PostgresDsn, computed_field, model_validator
+from pydantic import PostgresDsn, computed_field, model_validator, SecretStr
 from typing import Optional
 
 class Settings(BaseSettings):
@@ -12,13 +12,15 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "MaaV Solutions Phase-1"
     API_V1_STR: str = "/api/v1"
     
-    JWT_SECRET_KEY: str = "YOUR_SUPER_SECRET_JWT_KEY_HERE"
+    # Secrets classification: SecretStr protects against accidental logging exposure.
+    # NO DEFAULT VALUE: Fails securely on startup if missing.
+    JWT_SECRET_KEY: SecretStr
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    APP_ENV: str = "development"
-    LOG_LEVEL: str = "INFO"
+    # Environment MUST be explicitly declared. No silent fallbacks to development.
+    APP_ENV: str
 
     # CORS Settings
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
@@ -44,9 +46,17 @@ class Settings(BaseSettings):
     @model_validator(mode='after')
     def validate_production_secrets(self):
         if self.APP_ENV.lower() == "production":
-            if not self.JWT_SECRET_KEY or self.JWT_SECRET_KEY == "YOUR_SUPER_SECRET_JWT_KEY_HERE":
-                raise RuntimeError("JWT_SECRET_KEY must be set securely in production")
+            jwt_secret = self.JWT_SECRET_KEY.get_secret_value()
+            if not jwt_secret or jwt_secret == "YOUR_SUPER_SECRET_JWT_KEY_HERE":
+                raise ValueError("JWT_SECRET_KEY must be generated uniquely for production.")
             
+            # 256-bit Entropy Enforcement
+            if len(jwt_secret.encode('utf-8')) < 32:
+                 raise ValueError(
+                     "JWT_SECRET_KEY lacks sufficient entropy. "
+                     "Must be at least 32 bytes (cryptographically generated) to satisfy HS256."
+                 )
+                 
             # CORS Fail-Closed Security Validation
             if not self.BACKEND_CORS_ORIGINS:
                 raise ValueError("BACKEND_CORS_ORIGINS cannot be empty in production.")
