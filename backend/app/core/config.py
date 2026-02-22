@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import PostgresDsn, computed_field, model_validator, SecretStr
-from typing import Optional
+from typing import Optional, Literal
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Environment MUST be explicitly declared. No silent fallbacks to development.
-    APP_ENV: str
+    APP_ENV: Literal["development", "staging", "production"]
+    LOG_LEVEL: str = "INFO"
 
     # CORS Settings
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
@@ -45,7 +46,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode='after')
     def validate_production_secrets(self):
-        if self.APP_ENV.lower() == "production":
+        env = self.APP_ENV.lower()
+        
+        if env in ["staging", "production"]:
+            if self.LOG_LEVEL.upper() == "DEBUG":
+                 raise ValueError(f"LOG_LEVEL 'DEBUG' is strictly prohibited in {env} environment.")
+        
+        if env == "production":
             jwt_secret = self.JWT_SECRET_KEY.get_secret_value()
             if not jwt_secret or jwt_secret == "YOUR_SUPER_SECRET_JWT_KEY_HERE":
                 raise ValueError("JWT_SECRET_KEY must be generated uniquely for production.")

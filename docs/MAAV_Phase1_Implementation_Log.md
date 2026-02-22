@@ -487,5 +487,21 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 #### Step 3: Final Lock
 - **Module Completion**: Created `docs/Completion Lock Docs/22_Phase1_Secrets_Management_Lock.md`.
 
+---
+
+### Module 6.7: Production Environment Separation Enforcement (Completed: 2026-02-22)
+**Objective**: Hardcode deployment environments to strict schemas, crippling diagnostic verbosity and external API visibility explicitly when decoupled from the developer machine.
+
+#### Step 1: Constraint Verification (`app/core/config.py`)
+- **Literal Typings**: Enforced explicitly that `APP_ENV` strictly evaluate to either `development`, `staging`, or `production`.
+- **Log Constraints**: Banned the `DEBUG` trace flag specifically across `staging` and `production` execution lines mechanically blocking output dumps.
+
+#### Step 2: Footprint Reduction (`app/main.py`)
+- **Swagger Blocking**: Instructed FastAPI to pass `openapi_url=None` universally under `staging`/`production`, rendering API documentation inaccessible.
+- **Health Obfuscation**: Masked `HTTP 503` tracebacks and internal pings to output blind `{"status": "ok"}` responses outside development context.
+
+#### Step 3: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/23_Phase1_Environment_Separation_Lock.md`.
+
 
 

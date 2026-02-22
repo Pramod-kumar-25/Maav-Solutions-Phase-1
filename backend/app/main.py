@@ -8,9 +8,15 @@ from .core.dependencies import get_db
 from .core.exception_handlers import register_exception_handlers
 from .api import auth, taxpayer, business, financials, compliance, itr, filing, consent
 
+app_configs = {}
+if settings.APP_ENV in ["staging", "production"]:
+    app_configs["openapi_url"] = None # Blinds Swagger UI & Redoc
+    app_configs["docs_url"] = None
+    app_configs["redoc_url"] = None
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    **app_configs
 )
 
 # Register CORS Middleware EARLY as the outermost boundary
@@ -38,18 +44,24 @@ app.include_router(consent.router, prefix="/api/v1/consent", tags=["CA Assignmen
 @app.get("/api/v1/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
     """
-    Health check endpoint.
+    Health check endpoint. Uninformative in production.
     """
     try:
         # Check database connectivity
         await db.execute(text("SELECT 1"))
+        
+        # Obfuscate output if deployed
+        if settings.APP_ENV in ["staging", "production"]:
+            return {"status": "ok"}
+            
         return {"status": "ok", "db": "connected"}
+        
     except Exception as e:
         logger.error(f"Health check DB error: {str(e)}")
-        # If DB is down, return 503 Service Unavailable
+        # If DB is down, return 503 Service Unavailable blind footprint
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection failed"
+            detail="Service Unavailable" if settings.APP_ENV in ["staging", "production"] else f"Database connection failed: {e}"
         )
 
 @app.on_event("startup")
