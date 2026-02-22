@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     LOG_LEVEL: str = "INFO"
 
+    # CORS Settings
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+
     # Database: Single URL source of truth
     # Must be in format: postgresql+asyncpg://...
     DATABASE_URL: PostgresDsn
@@ -43,6 +46,13 @@ class Settings(BaseSettings):
         if self.APP_ENV.lower() == "production":
             if not self.JWT_SECRET_KEY or self.JWT_SECRET_KEY == "YOUR_SUPER_SECRET_JWT_KEY_HERE":
                 raise RuntimeError("JWT_SECRET_KEY must be set securely in production")
+            
+            # CORS Fail-Closed Security Validation
+            if not self.BACKEND_CORS_ORIGINS:
+                raise ValueError("BACKEND_CORS_ORIGINS cannot be empty in production.")
+            if "*" in self.BACKEND_CORS_ORIGINS:
+                raise ValueError("Wildcard '*' origins are strictly prohibited in production.")
+                
         return self
 
 settings = Settings()
