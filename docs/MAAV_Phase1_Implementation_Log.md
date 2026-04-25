@@ -503,5 +503,23 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 #### Step 3: Final Lock
 - **Module Completion**: Created `docs/Completion Lock Docs/23_Phase1_Environment_Separation_Lock.md`.
 
+---
 
+### Section 7: Unit Tests for Service Layer (Completed: 2026-04-25)
+**Objective**: Establish a deterministic, fully isolated testing harness for Phase-1 service-layer orchestration logic, enforcing zero database interaction and strict domain exception usage.
 
+#### Step 1: TaxpayerProfileService Tests (`test_create_taxpayer_service.py`)
+- **5 test cases**: Success creation, duplicate rejection (`DuplicateResourceError`), invalid PAN type (`ValidationError`), user not found (`NotFoundError`), default value population.
+- **Write guard**: All failure paths enforce `repo.create.call_count == 0`.
+
+#### Step 2: FilingService State Machine Tests (`test_filing_service.py`)
+- **8 test cases**: DRAFT creation, valid DRAFT→READY transition, invalid skip transitions (DRAFT→VERIFIED, DRAFT→SUBMITTED, READY→VERIFIED), duplicate submission, filing not found, full sequential flow (DRAFT→READY→SUBMITTED→VERIFIED).
+- **Write guard**: All failure paths enforce `repo.update.call_count == 0`.
+
+#### Step 3: FinancialEntryService Tests (`test_financial_entry_service.py`)
+- **11 test cases**: INCOME/EXPENSE creation, negative amount rejection, invalid type rejection ("REFUND", "DEDUCTION"), entry retrieval, entry not found, zero-amount boundary, EXPENSE-filtered retrieval.
+- **Write guard**: All failure paths enforce `repo.create_entry.call_count == 0`.
+
+#### Step 4: Final Lock
+- **Total Tests**: 24 across 3 service files.
+- **Module Completion**: Created `docs/Completion Lock Docs/24_Phase1_Service_Layer_Unit_Tests_Lock.md`.
