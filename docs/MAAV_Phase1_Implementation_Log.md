@@ -523,3 +523,23 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 #### Step 4: Final Lock
 - **Total Tests**: 24 across 3 service files.
 - **Module Completion**: Created `docs/Completion Lock Docs/24_Phase1_Service_Layer_Unit_Tests_Lock.md`.
+
+---
+
+### Section 7.1: Integration Test Infrastructure (Completed: 2026-05-01)
+**Objective**: Establish a fully isolated, transactionally safe integration test infrastructure enabling API-level testing against an ephemeral in-memory database with zero production contact.
+
+#### Step 1: Database Isolation (`conftest.py`)
+- **Engine**: `sqlite+aiosqlite:///:memory:` — ephemeral SQLite, destroyed on process exit.
+- **Zero Production Contact**: Removed all references to `settings.DATABASE_URL`. No `app.core.config` import exists in test infrastructure.
+
+#### Step 2: Transactional Isolation Strategy
+- **Session-scoped**: `setup_database` creates all tables on entry, drops all on exit.
+- **Per-test**: `db_session` fixture wraps each test in a nested savepoint. All writes are rolled back automatically, guaranteeing zero data leakage between tests.
+
+#### Step 3: FastAPI Client Override
+- **Dependency Override**: `get_db` replaced per-test with isolated `db_session`. Overrides cleared after each test.
+- **Async Client**: `httpx.AsyncClient` with `ASGITransport` bound to the app at `http://testserver`.
+
+#### Step 4: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/25_Phase1_Integration_Test_Infrastructure_Lock.md`.
