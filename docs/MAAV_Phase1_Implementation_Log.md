@@ -541,5 +541,29 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 - **Dependency Override**: `get_db` replaced per-test with isolated `db_session`. Overrides cleared after each test.
 - **Async Client**: `httpx.AsyncClient` with `ASGITransport` bound to the app at `http://testserver`.
 
-#### Step 4: Final Lock
 - **Module Completion**: Created `docs/Completion Lock Docs/25_Phase1_Integration_Test_Infrastructure_Lock.md`.
+
+---
+
+### Section 7.2: Integration Tests for API Flows (Completed: 2026-05-01)
+**Objective**: Hardened and deterministically validated end-to-end API-level orchestration mapped from HTTP ingress straight down through the data persistence layers across all foundational service boundaries.
+
+#### Step 1: Auth API Testing
+- **Coverage**: Registration duplicate checks, strict Login token emission, protected route `401 Unauthorized` enforcement.
+- **Determinism**: Exact HTTP status validations (201 for registration, 400 for duplicates).
+
+#### Step 2: Taxpayer API Testing
+- **Coverage**: Payload schema validation, explicit JWT identity extraction tests, `404 Not Found` interception on premature fetch.
+- **Determinism**: Validated return structure explicitly against strictly typed dynamic responses (`residential_status`, `default_tax_regime`).
+
+#### Step 3: Filing API Testing (State Machine)
+- **Lifecycle Integrity**: Complete test coverage tracking sequential HTTP state mutations (`DRAFT` → `READY` → `SUBMITTED` → `VERIFIED`).
+- **Safety Blocks**: Explicity asserted `400 Bad Request` mapping when intentionally skipping expected states or triggering duplicate submissions. 
+
+#### Step 4: Financial API Testing
+- **Validation Execution**: Domain specific exceptions reliably throwing exactly `400 Bad Request` upon ingress of negative amounts or malformed enums.
+- **Aggregations**: `GET` endpoints validated utilizing completely independent dynamic looping arrays.
+
+#### Step 5: Final Lock
+- **Validation**: Zero mocks injected; all operations ran exclusively through the real system utilizing an isolated `sqlite+aiosqlite:///:memory:` DB mapping.
+- **Module Completion**: Created `docs/Completion Lock Docs/26_Phase1_API_Integration_Tests_Lock.md`.
