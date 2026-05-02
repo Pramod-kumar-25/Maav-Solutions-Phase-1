@@ -15,7 +15,6 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(
         min_length=12,
-        pattern=r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$",
         description="Password must be at least 12 characters and contain at least one uppercase letter, one lowercase letter, one digit, and one special character."
     )
 
@@ -23,6 +22,20 @@ class UserCreate(UserBase):
     def strip_whitespace(cls, v):
         if isinstance(v, str):
             return v.strip()
+        return v
+
+    @field_validator('password')
+    def validate_password_complexity(cls, v):
+        if isinstance(v, str):
+            import re
+            if not re.search(r"[A-Z]", v):
+                raise ValueError("Password must contain at least one uppercase letter")
+            if not re.search(r"[a-z]", v):
+                raise ValueError("Password must contain at least one lowercase letter")
+            if not re.search(r"\d", v):
+                raise ValueError("Password must contain at least one digit")
+            if not re.search(r"[@$!%*?&]", v):
+                raise ValueError("Password must contain at least one special character")
         return v
 
 # Properties to receive via API on login
@@ -35,7 +48,6 @@ class PasswordChange(BaseModel):
     current_password: str
     new_password: str = Field(
         min_length=12,
-        pattern=r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$",
         description="Password must be at least 12 characters and contain at least one uppercase letter, one lowercase letter, one digit, and one special character."
     )
 
@@ -43,6 +55,20 @@ class PasswordChange(BaseModel):
     def strip_whitespace(cls, v):
         if isinstance(v, str):
             return v.strip()
+        return v
+
+    @field_validator('new_password')
+    def validate_password_complexity(cls, v):
+        if isinstance(v, str):
+            import re
+            if not re.search(r"[A-Z]", v):
+                raise ValueError("Password must contain at least one uppercase letter")
+            if not re.search(r"[a-z]", v):
+                raise ValueError("Password must contain at least one lowercase letter")
+            if not re.search(r"\d", v):
+                raise ValueError("Password must contain at least one digit")
+            if not re.search(r"[@$!%*?&]", v):
+                raise ValueError("Password must contain at least one special character")
         return v
 
 # Properties to return via API

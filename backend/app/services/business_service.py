@@ -75,7 +75,7 @@ class BusinessProfileService:
              raise ValueError(f"Constitution '{input_const}' does not match PAN Type '{pan_char_4}'. Expected one of: {valid_types}")
 
         # 4. Transactional Persistence
-        async with session.begin():
+        try:
             new_profile = BusinessProfile(
                 user_id=user_id,
                 constitution_type=profile_data.constitution_type,
@@ -94,7 +94,11 @@ class BusinessProfileService:
             )
             
             saved_profile = await self.business_repo.create_profile(session, new_profile)
+            await session.commit()
             return saved_profile
+        except Exception:
+            await session.rollback()
+            raise
 
     async def update_profile(self, session: AsyncSession, user_id: UUID, profile_data: BusinessProfileUpdate) -> BusinessProfile:
          # Placeholder for update logic

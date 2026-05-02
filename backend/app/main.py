@@ -32,14 +32,14 @@ app.add_middleware(
 
 register_exception_handlers(app)
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(taxpayer.router, prefix="/api/v1/taxpayer", tags=["Taxpayer Profile"])
-app.include_router(business.router, prefix="/api/v1/business", tags=["Business Profile"])
-app.include_router(financials.router, prefix="/api/v1/financial", tags=["Financial Ledger"])
-app.include_router(compliance.router, prefix="/api/v1/compliance", tags=["Compliance Engine"])
-app.include_router(itr.router, prefix="/api/v1/itr", tags=["ITR Determination"])
-app.include_router(filing.router, prefix="/api/v1/filing", tags=["Filing Case Workflow"])
-app.include_router(consent.router, prefix="/api/v1/consent", tags=["CA Assignment & Consent"])
+app.include_router(auth, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(taxpayer, prefix="/api/v1/taxpayer", tags=["Taxpayer Profile"])
+app.include_router(business, prefix="/api/v1/business", tags=["Business Profile"])
+app.include_router(financials, prefix="/api/v1/financial", tags=["Financial Ledger"])
+app.include_router(compliance, prefix="/api/v1/compliance", tags=["Compliance Engine"])
+app.include_router(itr, prefix="/api/v1/itr", tags=["ITR Determination"])
+app.include_router(filing, prefix="/api/v1/filing", tags=["Filing Case Workflow"])
+app.include_router(consent, prefix="/api/v1/consent", tags=["CA Assignment & Consent"])
 
 @app.get("/api/v1/health")
 async def health_check(db: AsyncSession = Depends(get_db)):

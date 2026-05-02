@@ -24,6 +24,7 @@ def check_itr_access(user: User):
 @router.post("/determine", response_model=ITRDeterminationResponse)
 async def determine_itr(
     request: ITRDeterminationRequest,
+    force: bool = Query(False, description="Bypass lock and force re-determination"),
     current_user: User = Depends(deps.get_current_user),
     service: ITRDeterminationService = Depends(deps.get_itr_service),
     session: AsyncSession = Depends(get_db)
@@ -37,7 +38,8 @@ async def determine_itr(
     return await service.determine_itr(
         session=session,
         user_id=current_user.id,
-        financial_year=request.financial_year
+        financial_year=request.financial_year,
+        bypass_lock=force
     )
 
 @router.get("/", response_model=ITRDeterminationResponse)

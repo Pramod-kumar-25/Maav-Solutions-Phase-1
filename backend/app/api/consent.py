@@ -33,14 +33,19 @@ async def grant_consent(
     """
     check_taxpayer_access(current_user)
     
-    async with session.begin():
-        return await service.grant_consent(
+    try:
+        res = await service.grant_consent(
             session=session,
             user_id=current_user.id,
             purpose=request.purpose,
             scope=request.scope,
             expiry_at=request.expiry_at
         )
+        await session.commit()
+        return res
+    except Exception:
+        await session.rollback()
+        raise
 
 @router.post("/{consent_id}/revoke", status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_consent(
@@ -55,13 +60,17 @@ async def revoke_consent(
     """
     check_taxpayer_access(current_user)
     
-    async with session.begin():
+    try:
         await service.revoke_consent(
             session=session,
             consent_id=consent_id,
             user_id=current_user.id,
             reason=reason
         )
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
 
 @router.post("/assignments", response_model=CAAssignmentResponse, status_code=status.HTTP_201_CREATED)
 async def assign_ca(
@@ -75,11 +84,16 @@ async def assign_ca(
     """
     check_taxpayer_access(current_user)
     
-    async with session.begin():
-        return await service.assign_ca(
+    try:
+        res = await service.assign_ca(
             session=session,
             filing_id=request.filing_id,
             taxpayer_id=current_user.id,
             ca_user_id=request.ca_user_id,
             consent_id=request.consent_id
         )
+        await session.commit()
+        return res
+    except Exception:
+        await session.rollback()
+        raise

@@ -5,3 +5,4 @@ from .financials import router as financials
 from .compliance import router as compliance
 from .itr import router as itr
 from .filing import router as filing
+from .consent import router as consent

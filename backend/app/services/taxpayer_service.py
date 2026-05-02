@@ -46,14 +46,13 @@ class TaxpayerProfileService:
             taxed_elsewhere=None
         )
 
-        # 3. Enforce Business Rules (Phase 1 Limits)
-        if res_status == ResidentialStatus.NRI:
-            raise ValueError("Phase 1 currently supports RESIDENT and RNOR status only. NRI support is pending.")
+        # 3. All residential statuses (RESIDENT, RNOR, NRI) are now fully supported.
+        # NRI taxpayers are taxed only on Indian-sourced income per Section 5(2).
 
         # 4. Transactional Persistence
         # We rely on the caller or framework to handle exceptions. 
         # async with session.begin() ensures atomicity.
-        async with session.begin():
+        try:
             new_profile = TaxpayerProfile(
                 user_id=user_id,
                 residential_status=res_status.value,
@@ -65,7 +64,11 @@ class TaxpayerProfileService:
             )
             
             saved_profile = await self.taxpayer_repo.create_profile(session, new_profile)
+            await session.commit()
             return saved_profile
+        except Exception:
+            await session.rollback()
+            raise
 
     async def update_profile(self, session: AsyncSession, user_id: UUID, profile_data: TaxpayerProfileUpdate) -> TaxpayerProfile:
          # Placeholder for update logic (re-calculation needed if days change)

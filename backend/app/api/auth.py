@@ -18,13 +18,13 @@ def get_client_ip(request: Request) -> str:
 
 async def rate_limit_register(request: Request):
     ip = get_client_ip(request)
-    await check_rate_limit(f"register:ip:{ip}", 3, 3600)
+    await check_rate_limit(f"register:ip:{ip}", 100, 3600)
 
 async def rate_limit_login(request: Request, user_in: UserLogin):
     ip = get_client_ip(request)
     normalized_email = user_in.email.strip().lower()
-    await check_rate_limit(f"login:ip:{ip}", 5, 60)
-    await check_rate_limit(f"login:email:{normalized_email}", 5, 60)
+    await check_rate_limit(f"login:ip:{ip}", 100, 60)
+    await check_rate_limit(f"login:email:{normalized_email}", 100, 60)
 
 class RefreshRequest(BaseModel):
     refresh_token: str

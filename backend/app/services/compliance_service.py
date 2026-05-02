@@ -52,7 +52,7 @@ class ComplianceEngineService:
         }
 
         # 3. Explicit Transaction Block for Writes
-        async with session.begin():
+        try:
             # 4. Iterate and Evaluate
             for RuleClass in self.rules:
                 rule = RuleClass()
@@ -74,6 +74,10 @@ class ComplianceEngineService:
                         
                         # Add to local set to prevent duplicate inserts within same request (unlikely but safe)
                         existing_unresolved_codes.add(flag_code)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
     async def get_user_flags(self, session: AsyncSession, user_id: UUID, financial_year: str | None = None) -> List[ComplianceFlagResponse]: # Type hint will need import or just 'list'
         """
@@ -94,7 +98,7 @@ class ComplianceEngineService:
         """
         Resolve a flag. Enforces ownership.
         """
-        async with session.begin():
+        try:
             # 1. Fetch Flag
             flag = await self.compliance_repo.get_by_id(session, flag_id)
             
@@ -127,4 +131,8 @@ class ComplianceEngineService:
                 }
             )
             
+            await session.commit()
             return resolved_flag
+        except Exception:
+            await session.rollback()
+            raise

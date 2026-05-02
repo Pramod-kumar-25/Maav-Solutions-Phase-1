@@ -29,12 +29,12 @@ class ITRDeterminationService:
         self.itr_repo = itr_repo
         self.audit_service = audit_service
 
-    async def determine_itr(self, session: AsyncSession, user_id: UUID, financial_year: str) -> ITRDetermination:
+    async def determine_itr(self, session: AsyncSession, user_id: UUID, financial_year: str, bypass_lock: bool = False) -> ITRDetermination:
         """
         Determine the applicable ITR form based on financial entries.
         Wrap entire logic in a single transaction for consistency.
         """
-        async with session.begin():
+        try:
             # 1. Fetch Data
             entries = await self.financial_repo.get_by_user_id_and_year(session, user_id, financial_year)
             
@@ -79,15 +79,17 @@ class ITRDeterminationService:
             existing = await self.itr_repo.get_by_user_and_year(session, user_id, financial_year)
 
             if existing:
-                if existing.is_locked:
-                    raise ValueError("ITR Determination is locked")
+                if existing.is_locked and not bypass_lock:
+                    return existing
                 
                 # Update Existing
-                return await self.itr_repo.update_determination(session, existing, {
+                res = await self.itr_repo.update_determination(session, existing, {
                     "itr_type": itr_type,
                     "reason": reason,
                     "determined_at": datetime.now(timezone.utc)
                 })
+                await session.commit()
+                return res
 
             # 5. Create New
             new_determination = ITRDetermination(
@@ -99,7 +101,12 @@ class ITRDeterminationService:
                 is_locked=False
             )
             
-            return await self.itr_repo.create_determination(session, new_determination)
+            res = await self.itr_repo.create_determination(session, new_determination)
+            await session.commit()
+            return res
+        except Exception:
+            await session.rollback()
+            raise
 
     async def get_determination(self, session: AsyncSession, user_id: UUID, financial_year: str) -> Optional[ITRDetermination]:
         """
@@ -118,14 +125,14 @@ class ITRDeterminationService:
         Lock an existing determination.
         Enforces ownership via get_by_user_and_year (implicitly checks user_id).
         """
-        async with session.begin():
+        try:
             existing = await self.itr_repo.get_by_user_and_year(session, user_id, financial_year)
             
             if not existing:
                 raise ValueError("Determination not found")
             
             if existing.is_locked:
-                raise ValueError("Determination is already locked")
+                return existing
             
             # Capture state before update
             before_value = {
@@ -150,4 +157,8 @@ class ITRDeterminationService:
                 }
             )
 
+            await session.commit()
             return locked_determination
+        except Exception:
+            await session.rollback()
+            raise

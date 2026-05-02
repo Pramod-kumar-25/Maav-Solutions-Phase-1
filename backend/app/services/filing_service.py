@@ -86,32 +86,37 @@ class FilingCaseService:
             raise ValidationError(f"Filing Case already exists for {financial_year}")
 
         # 3. Create New Case
-        new_case = FilingCase(
-            user_id=user_id,
-            financial_year=financial_year,
-            itr_determination_id=itr_determination_id,
-            current_state=self.STATE_DRAFT,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
-        )
-        
-        created_case = await self.filing_repo.create_case(session, new_case)
-        
-        # 4. Audit Log
-        await self.audit_service.log_action(
-            session=session,
-            actor_id=user_id,
-            actor_role=actor_role,
-            action="FILING_CASE_CREATED",
-            after_value={
-                "id": str(created_case.id),
-                "financial_year": financial_year,
-                "itr_determination_id": str(itr_determination_id),
-                "current_state": self.STATE_DRAFT
-            }
-        )
-        
-        return created_case
+        try:
+            new_case = FilingCase(
+                user_id=user_id,
+                financial_year=financial_year,
+                itr_determination_id=itr_determination_id,
+                current_state=self.STATE_DRAFT,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
+            )
+            
+            created_case = await self.filing_repo.create_case(session, new_case)
+            
+            # 4. Audit Log
+            await self.audit_service.log_action(
+                session=session,
+                actor_id=user_id,
+                actor_role=actor_role,
+                action="FILING_CASE_CREATED",
+                after_value={
+                    "id": str(created_case.id),
+                    "financial_year": financial_year,
+                    "itr_determination_id": str(itr_determination_id),
+                    "current_state": self.STATE_DRAFT
+                }
+            )
+            
+            await session.commit()
+            return created_case
+        except Exception:
+            await session.rollback()
+            raise
 
     async def approve_filing(
         self,
@@ -139,51 +144,56 @@ class FilingCaseService:
              raise ValidationError("Filing is not ready for approval")
 
         # 4. Create Confirmation Artifact
-        confirmation = UserConfirmation(
-            filing_id=filing_id,
-            confirmation_type="FILING_APPROVAL",
-            confirmed_by=user_id,
-            ip_address=ip_address,
-            confirmed_at=datetime.now(timezone.utc)
-        )
-        
-        await self.confirmation_repo.create_confirmation(session, confirmation)
-        
-        # 5. Transition to LOCKED (via internal helper to reuse logic/audit)
-        # We manually call transition here because this IS the transition
-        before_value = {"id": str(case.id), "current_state": case.current_state}
-        
-        updates = {
-             "current_state": self.STATE_LOCKED,
-             "updated_at": datetime.now(timezone.utc)
-        }
-        
-        updated_case = await self.filing_repo.update_case(session, case, updates)
+        try:
+            confirmation = UserConfirmation(
+                filing_id=filing_id,
+                confirmation_type="FILING_APPROVAL",
+                confirmed_by=user_id,
+                ip_address=ip_address,
+                confirmed_at=datetime.now(timezone.utc)
+            )
+            
+            await self.confirmation_repo.create_confirmation(session, confirmation)
+            
+            # 5. Transition to LOCKED (via internal helper to reuse logic/audit)
+            # We manually call transition here because this IS the transition
+            before_value = {"id": str(case.id), "current_state": case.current_state}
+            
+            updates = {
+                 "current_state": self.STATE_LOCKED,
+                 "updated_at": datetime.now(timezone.utc)
+            }
+            
+            updated_case = await self.filing_repo.update_case(session, case, updates)
 
-        # 6. Capture Evidence of Approval
-        await self.evidence_service.capture_evidence(
-            session=session,
-            payload={
-                "filing_id": str(updated_case.id),
-                "action": "TAXPAYER_APPROVAL",
-                "confirmed_by": str(user_id),
-                "ip_address": ip_address,
-                "timestamp": confirmation.confirmed_at.isoformat()
-            },
-            action_urn=f"urn:filing:{updated_case.id}:approval"
-        )
-        
-        # 7. Audit Log
-        await self.audit_service.log_action(
-            session=session,
-            actor_id=user_id,
-            actor_role="INDIVIDUAL", # Taxpayer is always INDIVIDUAL/BUSINESS owner
-            action="FILING_APPROVED",
-            before_value=before_value,
-            after_value={"id": str(updated_case.id), "current_state": self.STATE_LOCKED}
-        )
-        
-        return updated_case
+            # 6. Capture Evidence of Approval
+            await self.evidence_service.capture_evidence(
+                session=session,
+                payload={
+                    "filing_id": str(updated_case.id),
+                    "action": "TAXPAYER_APPROVAL",
+                    "confirmed_by": str(user_id),
+                    "ip_address": ip_address,
+                    "timestamp": confirmation.confirmed_at.isoformat()
+                },
+                action_urn=f"urn:filing:{updated_case.id}:approval"
+            )
+            
+            # 7. Audit Log
+            await self.audit_service.log_action(
+                session=session,
+                actor_id=user_id,
+                actor_role="INDIVIDUAL", # Taxpayer is always INDIVIDUAL/BUSINESS owner
+                action="FILING_APPROVED",
+                before_value=before_value,
+                after_value={"id": str(updated_case.id), "current_state": self.STATE_LOCKED}
+            )
+            
+            await session.commit()
+            return updated_case
+        except Exception:
+            await session.rollback()
+            raise
 
 
     async def transition_state(
@@ -208,29 +218,29 @@ class FilingCaseService:
 
         # A. DRAFT -> READY_FOR_REVIEW
         if current_state == self.STATE_DRAFT and next_state == self.STATE_REVIEW:
-            if case.filing_mode == "CA":
+            if getattr(case, "filing_mode", "SELF") == "CA":
                  if actor_role != "CA":
                       raise UnauthorizedError("Only Assigned CA can mark filing as Ready for Review")
-            elif case.filing_mode == "SELF":
+            elif getattr(case, "filing_mode", "SELF") == "SELF":
                  if actor_id != case.user_id:
                       raise UnauthorizedError("Only the Taxpayer can transition Self-Filing")
 
         # B. READY_FOR_REVIEW -> LOCKED
         elif current_state == self.STATE_REVIEW and next_state == self.STATE_LOCKED:
-            if case.filing_mode == "CA":
+            if getattr(case, "filing_mode", "SELF") == "CA":
                 # This transition MUST happen via approve_filing, but if called directly:
                 if actor_id != case.user_id:
                      raise UnauthorizedError("Only Taxpayer can approve/lock the filing")
-            elif case.filing_mode == "SELF":
+            elif getattr(case, "filing_mode", "SELF") == "SELF":
                 if actor_id != case.user_id:
                      raise UnauthorizedError("Only Taxpayer can lock Self-Filing")
 
         # C. LOCKED -> SUBMITTED
         elif current_state == self.STATE_LOCKED and next_state == self.STATE_SUBMITTED:
-             if case.filing_mode == "CA":
+             if getattr(case, "filing_mode", "SELF") == "CA":
                  if actor_role != "CA":
                      raise UnauthorizedError("Only Assigned CA can submit CA-managed filing")
-             elif case.filing_mode == "SELF":
+             elif getattr(case, "filing_mode", "SELF") == "SELF":
                  if actor_id != case.user_id:
                      raise UnauthorizedError("Only Taxpayer can submit Self-Filing")
 
@@ -247,7 +257,7 @@ class FilingCaseService:
             raise ValidationError(f"Invalid transition from {current_state} to {next_state}")
 
         # CA Workflow Enforcement: SUBMITTED requires LOCKED state + Confirmation
-        if next_state == self.STATE_SUBMITTED and case.filing_mode == "CA":
+        if next_state == self.STATE_SUBMITTED and getattr(case, "filing_mode", "SELF") == "CA":
                 if current_state != self.STATE_LOCKED:
                     raise ValidationError("CA Filing must be LOCKED (Approved) before submission")
                 
@@ -268,54 +278,59 @@ class FilingCaseService:
         }
 
         # 4. Apply Updates
-        updates = {
-            "current_state": next_state,
-            "updated_at": datetime.now(timezone.utc)
-        }
-        
-        # Special handling for submission
-        if next_state == self.STATE_SUBMITTED:
-            updates["submitted_at"] = datetime.now(timezone.utc)
-
-        updated_case = await self.filing_repo.update_case(session, case, updates)
-        
-        # Evidence Capture (Atomic) for SUBMISSION
-        if next_state == self.STATE_SUBMITTED:
-            determination = await self.itr_repo.get_by_id(session, case.itr_determination_id)
-            await self.evidence_service.capture_evidence(
-                session=session,
-                payload={
-                    "filing_case": {
-                        "id": str(updated_case.id),
-                        "financial_year": updated_case.financial_year,
-                        "submitted_at": updated_case.submitted_at.isoformat() if updated_case.submitted_at else None,
-                    },
-                    "itr_determination": {
-                        "id": str(determination.id) if determination else None,
-                        "itr_type": determination.itr_type if determination else None
-                    },
-                    "actor_id": str(actor_id),
-                    "actor_role": actor_role,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "confirmation_ref": submission_confirmation_ref # Link to approval
-                },
-                action_urn=f"urn:filing:{updated_case.id}:submission",
-                retention_years=7
-            )
-        
-        # 5. Audit Log
-        await self.audit_service.log_action(
-            session=session,
-            actor_id=actor_id,
-            actor_role=actor_role,
-            action="FILING_STATE_TRANSITION",
-            before_value=before_value,
-            after_value={
-                "id": str(updated_case.id),
+        try:
+            updates = {
                 "current_state": next_state,
-                "previous_state": current_state
+                "updated_at": datetime.now(timezone.utc)
             }
-        )
+            
+            # Special handling for submission
+            if next_state == self.STATE_SUBMITTED:
+                updates["submitted_at"] = datetime.now(timezone.utc)
 
-        return updated_case
+            updated_case = await self.filing_repo.update_case(session, case, updates)
+            
+            # Evidence Capture (Atomic) for SUBMISSION
+            if next_state == self.STATE_SUBMITTED:
+                determination = await self.itr_repo.get_by_id(session, case.itr_determination_id)
+                await self.evidence_service.capture_evidence(
+                    session=session,
+                    payload={
+                        "filing_case": {
+                            "id": str(updated_case.id),
+                            "financial_year": updated_case.financial_year,
+                            "submitted_at": updated_case.submitted_at.isoformat() if updated_case.submitted_at else None,
+                        },
+                        "itr_determination": {
+                            "id": str(determination.id) if determination else None,
+                            "itr_type": determination.itr_type if determination else None
+                        },
+                        "actor_id": str(actor_id),
+                        "actor_role": actor_role,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "confirmation_ref": submission_confirmation_ref # Link to approval
+                    },
+                    action_urn=f"urn:filing:{updated_case.id}:submission",
+                    retention_years=7
+                )
+            
+            # 5. Audit Log
+            await self.audit_service.log_action(
+                session=session,
+                actor_id=actor_id,
+                actor_role=actor_role,
+                action="FILING_STATE_TRANSITION",
+                before_value=before_value,
+                after_value={
+                    "id": str(updated_case.id),
+                    "current_state": next_state,
+                    "previous_state": current_state
+                }
+            )
+
+            await session.commit()
+            return updated_case
+        except Exception:
+            await session.rollback()
+            raise
 

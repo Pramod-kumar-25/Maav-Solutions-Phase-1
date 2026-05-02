@@ -7,7 +7,6 @@ from app.utils.security import hash_password, verify_password
 from app.core.config import settings
 from datetime import datetime, timedelta, timezone
 from jose import jwt
-from passlib.context import CryptContext
 from app.core.exceptions import NotFoundError, UnauthorizedError, ValidationError
 import secrets
 import hashlib
@@ -16,10 +15,9 @@ from uuid import uuid4, UUID
 class AuthService:
     def __init__(self, auth_repo: AuthRepository):
         self.auth_repo = auth_repo
-        # Initialize a dedicated context for dummy hashing to block timing attacks
-        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        import bcrypt
         # Pre-calculated dummy hash for a realistic delay
-        self.dummy_hash = self.pwd_context.hash("dummy_password_for_timing_delay")
+        self.dummy_hash = bcrypt.hashpw(b"dummy_password_for_timing_delay", bcrypt.gensalt()).decode('utf-8')
 
     def create_access_token(self, data: dict, expires_delta: timedelta | None = None) -> str:
         """
@@ -32,7 +30,7 @@ class AuthService:
             expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+        encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY.get_secret_value(), algorithm=settings.JWT_ALGORITHM)
         return encoded_jwt
 
     async def register_user(self, session: AsyncSession, user_create: UserCreate) -> User:
@@ -49,29 +47,28 @@ class AuthService:
 
         # 3. Transactional Write
         try:
-            async with session.begin():
-                # Create User
-                new_user = User(
-                    email=user_create.email,
-                    legal_name=user_create.legal_name,
-                    mobile=user_create.mobile,
-                    pan=user_create.pan,
-                    primary_role=user_create.primary_role
-                )
-                saved_user = await self.auth_repo.create_user(session, new_user)
+            # Create User
+            new_user = User(
+                email=user_create.email,
+                legal_name=user_create.legal_name,
+                mobile=user_create.mobile,
+                pan=user_create.pan,
+                primary_role=user_create.primary_role
+            )
+            saved_user = await self.auth_repo.create_user(session, new_user)
 
-                # Create Credentials
-                credentials = UserCredentials(
-                    user_id=saved_user.id,
-                    auth_provider="PASSWORD",
-                    password_hash=hashed_pwd
-                )
-                await self.auth_repo.create_user_credentials(session, credentials)
-                
-                return saved_user
+            # Create Credentials
+            credentials = UserCredentials(
+                user_id=saved_user.id,
+                auth_provider="PASSWORD",
+                password_hash=hashed_pwd
+            )
+            await self.auth_repo.create_user_credentials(session, credentials)
+            
+            await session.commit()
+            return saved_user
         except Exception as e:
-            # SQLAlchemy async IO automatically rolls back on exception exit from 'async with session.begin()'
-            # We re-raise to let the controller handle arguments/logging
+            await session.rollback()
             raise e
 
     async def login_user(self, session: AsyncSession, user_login: UserLogin) -> Token:
@@ -87,12 +84,12 @@ class AuthService:
         
         # Anti-Enumeration: If no user, perform dummy hash to simulate DB+Hash latency
         if not user or user.account_status != 'ACTIVE':
-            self.pwd_context.verify(user_login.password, self.dummy_hash)
+            verify_password(user_login.password, self.dummy_hash)
             raise UnauthorizedError(generic_error_msg)
 
         credentials = await self.auth_repo.get_credentials_by_user_id(session, user.id)
         if not credentials:
-             self.pwd_context.verify(user_login.password, self.dummy_hash)
+             verify_password(user_login.password, self.dummy_hash)
              raise UnauthorizedError(generic_error_msg)
 
         # 2. Check Cooldown Status
@@ -101,7 +98,7 @@ class AuthService:
             time_since_last_fail = now_utc - credentials.last_failed_login_at
             if time_since_last_fail < timedelta(minutes=cooldown_minutes):
                 # Cooldown active. Simulate hash delay to hide lockout status.
-                self.pwd_context.verify(user_login.password, self.dummy_hash)
+                verify_password(user_login.password, self.dummy_hash)
                 raise UnauthorizedError(generic_error_msg)
 
         # 3. Verify Password
@@ -109,7 +106,7 @@ class AuthService:
 
         if not is_valid:
             # 4. Handle Failed Attempt (Atomic Write with Row Lock)
-            async with session.begin():
+            try:
                 # Re-fetch credentials inside transaction with a row-level lock to prevent lost updates
                 tx_credentials = await self.auth_repo.get_credentials_by_user_id_for_update(session, user.id)
                 # Reset counter if previous cooldown expired
@@ -120,6 +117,9 @@ class AuthService:
                 
                 tx_credentials.last_failed_login_at = now_utc
                 # NOTE: Audit logging (LOGIN_FAILED / TEMPORARY_LOCKOUT_TRIGGERED) should hook here
+                await session.commit()
+            except Exception:
+                await session.rollback()
             raise UnauthorizedError(generic_error_msg)
 
         # 5. Handle Successful Login & Session Creation (Atomic Write with Row Lock)
@@ -127,7 +127,7 @@ class AuthService:
         raw_refresh_token = secrets.token_hex(64)
         refresh_token_hash = hashlib.sha256(raw_refresh_token.encode()).hexdigest()
         
-        async with session.begin():
+        try:
             # Apply row-level lock for consistency
             tx_credentials = await self.auth_repo.get_credentials_by_user_id_for_update(session, user.id)
             tx_credentials.failed_attempts = 0
@@ -142,6 +142,10 @@ class AuthService:
                 status="ACTIVE"
             )
             created_session = await self.auth_repo.create_auth_session(session, auth_session)
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            raise e
 
         full_refresh_token = f"{created_session.id}:{raw_refresh_token}"
 
@@ -149,6 +153,8 @@ class AuthService:
         access_token = self.create_access_token(
             data={
                 "sub": str(user.id),
+                "email": user.email,
+                "name": user.legal_name,
                 "primary_role": user.primary_role,
                 "sid": str(created_session.id),
                 "jti": str(uuid4())
@@ -175,7 +181,7 @@ class AuthService:
 
         token_hash = hashlib.sha256(raw_refresh_token.encode()).hexdigest()
         
-        async with session.begin():
+        try:
             auth_session = await self.auth_repo.get_session_by_id(session, sid)
             
             if not auth_session:
@@ -187,10 +193,12 @@ class AuthService:
             # Replay Detection
             if auth_session.refresh_token_hash != token_hash:
                 auth_session.status = "REVOKED"
+                await session.commit()
                 raise UnauthorizedError("Refresh token reuse detected")
                 
             if auth_session.session_expiry < datetime.now(timezone.utc):
                 auth_session.status = "EXPIRED"
+                await session.commit()
                 raise UnauthorizedError("Refresh token expired")
                 
             user = await self.auth_repo.get_user_by_id(session, auth_session.user_id)
@@ -204,11 +212,17 @@ class AuthService:
             
             auth_session.refresh_token_hash = new_hash
             auth_session.session_expiry = session_expiry
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            raise e
             
         # Outside transaction, generate JWT
         access_token = self.create_access_token(
             data={
                 "sub": str(user.id),
+                "email": user.email,
+                "name": user.legal_name,
                 "primary_role": user.primary_role,
                 "sid": str(auth_session.id),
                 "jti": str(uuid4())
@@ -235,12 +249,15 @@ class AuthService:
 
         token_hash = hashlib.sha256(raw_refresh_token.encode()).hexdigest()
         
-        async with session.begin():
+        try:
             auth_session = await self.auth_repo.get_session_by_id(session, sid)
             
             if auth_session and auth_session.status == 'ACTIVE':
                 if auth_session.refresh_token_hash == token_hash:
                     auth_session.status = "REVOKED"
+                    await session.commit()
+        except Exception:
+            await session.rollback()
 
     async def change_password(
         self, 
@@ -262,7 +279,7 @@ class AuthService:
             
         hashed_new_pwd = hash_password(new_password)
         
-        async with session.begin():
+        try:
             # 1. Update password
             tx_credentials = await self.auth_repo.get_credentials_by_user_id(session, user_id)
             tx_credentials.password_hash = hashed_new_pwd
@@ -273,3 +290,7 @@ class AuthService:
                 if s.id != active_session_id:
                     s.status = 'REVOKED'
             # NOTE: Logging for SESSIONS_REVOKED / PASSWORD_CHANGED should hook here
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            raise e

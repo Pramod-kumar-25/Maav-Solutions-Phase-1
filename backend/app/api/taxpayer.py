@@ -8,7 +8,7 @@ from app.models.user import User
 from app.schemas.taxpayer import TaxpayerProfileCreate, TaxpayerProfileResponse
 from app.services.taxpayer_service import TaxpayerProfileService
 
-router = APIRouter(prefix="/taxpayer", tags=["Taxpayer Profile"])
+router = APIRouter()
 
 @router.post(
     "/profile",

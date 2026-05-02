@@ -37,9 +37,13 @@ class FinancialEntryService:
             raise ValueError(f"Invalid financial_year format '{financial_year}'. Must be 'YYYY-YY'.")
 
         # 4. Create Entry in Transaction
-        async with session.begin():
+        try:
             new_entry = await self.financial_repo.create_entry(session, user_id, entry_data)
+            await session.commit()
             return new_entry
+        except Exception:
+            await session.rollback()
+            raise
 
     async def get_user_entries(self, session: AsyncSession, user_id: UUID) -> List[FinancialEntry]:
         """
@@ -61,7 +65,7 @@ class FinancialEntryService:
         Delete a financial entry.
         Strictly enforces ownership: entry.user_id must match request user_id.
         """
-        async with session.begin():
+        try:
             # 1. Fetch Entry
             entry = await self.financial_repo.get_by_id(session, entry_id)
             if not entry:
@@ -73,4 +77,8 @@ class FinancialEntryService:
 
             # 3. Delete
             deleted = await self.financial_repo.delete_entry_by_id(session, entry_id)
+            await session.commit()
             return deleted
+        except Exception:
+            await session.rollback()
+            raise

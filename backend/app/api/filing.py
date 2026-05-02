@@ -71,9 +71,14 @@ async def transition_state(
     """
     check_access(current_user)
     
+    case = await service.get_case(session, current_user.id, financial_year)
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Filing Case not found")
+
     return await service.transition_state(
         session=session,
-        user_id=current_user.id,
-        financial_year=financial_year,
-        next_state=transition.next_state
+        filing_id=case.id,
+        actor_id=current_user.id,
+        next_state=transition.next_state,
+        actor_role=current_user.primary_role
     )
