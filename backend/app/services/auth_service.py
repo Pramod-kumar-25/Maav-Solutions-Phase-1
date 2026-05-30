@@ -40,7 +40,11 @@ class AuthService:
         # 1. Check existing (Read-only, before transaction to save resources)
         existing_user = await self.auth_repo.get_user_by_email(session, user_create.email)
         if existing_user:
-            raise ValidationError("Email already registered")
+            raise ValidationError("Email already registered. Please sign in.")
+
+        existing_pan = await self.auth_repo.get_user_by_pan(session, user_create.pan)
+        if existing_pan:
+            raise ValidationError(f"An account with PAN {user_create.pan} already exists in our system. Please go back and Sign In.")
 
         # 2. Hash Password (CPU-bound, outside transaction)
         hashed_pwd = hash_password(user_create.password)

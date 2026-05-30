@@ -22,6 +22,7 @@ class FilingCaseResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     submitted_at: Optional[datetime] = None
+    client_name: Optional[str] = None
 
     class Config:
         from_attributes = True

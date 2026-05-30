@@ -13,7 +13,7 @@ def check_access(user: User):
     """
     Enforce that only INDIVIDUAL and BUSINESS roles can access Filing features.
     """
-    if user.primary_role not in ["INDIVIDUAL", "BUSINESS"]:
+    if user.primary_role not in ["INDIVIDUAL", "BUSINESS", "CA"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied. Role not authorized."
@@ -51,9 +51,29 @@ async def get_filing_case(
     """
     check_access(current_user)
     
-    case = await service.get_case(session, current_user.id, financial_year)
+    if current_user.primary_role == "CA":
+        # Hack for demo: Find an assignment for this CA
+        from sqlalchemy import select
+        from app.models.consent import CAAssignment
+        from app.models.filing import FilingCase
+        
+        stmt = select(FilingCase).join(CAAssignment, CAAssignment.filing_id == FilingCase.id).where(
+            CAAssignment.ca_user_id == current_user.id,
+            FilingCase.financial_year == financial_year,
+            CAAssignment.status == "ACTIVE"
+        )
+        res = await session.execute(stmt)
+        case = res.scalars().first()
+    else:
+        case = await service.get_case(session, current_user.id, financial_year)
+        
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Filing Case not found")
+        
+    # Fetch client name for better UX
+    from sqlalchemy import select
+    user_res = await session.execute(select(User.legal_name).where(User.id == case.user_id))
+    case.client_name = user_res.scalar() or "Unknown Client"
         
     return case
 

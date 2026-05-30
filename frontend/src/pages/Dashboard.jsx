@@ -159,7 +159,9 @@ export default function Dashboard() {
                   {STATE_ICONS[f.current_state] || '📄'}
                 </div>
                 <div className="filing-card-info">
-                  <div className="filing-card-year">FY {f.financial_year}</div>
+                  <div className="filing-card-year">
+                    {jwtPayload.primary_role === 'CA' ? `${f.client_name || 'Client'} - FY ${f.financial_year}` : `FY ${f.financial_year}`}
+                  </div>
                   <div className="filing-card-meta">ITR Filing · Case ID: {f.id?.slice(0,12)}…</div>
                 </div>
                 <span className={`badge ${STATE_COLORS[f.current_state] || ''}`}>

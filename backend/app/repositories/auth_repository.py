@@ -25,6 +25,14 @@ class AuthRepository:
         result = await session.execute(stmt)
         return result.scalars().first()
 
+    async def get_user_by_pan(self, session: AsyncSession, pan: str) -> User | None:
+        """
+        Retrieve a user by their PAN.
+        """
+        stmt = select(User).where(User.pan == pan)
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
     async def create_user(self, session: AsyncSession, user: User) -> User:
         """
         Persist a new User entity.

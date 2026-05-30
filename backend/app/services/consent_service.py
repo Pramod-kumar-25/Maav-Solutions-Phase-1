@@ -37,6 +37,10 @@ class ConsentService:
         Grants a new consent.
         Valdiates expiry is in the future.
         """
+        # Ensure expiry_at is timezone-aware for comparison
+        if expiry_at.tzinfo is None:
+            expiry_at = expiry_at.replace(tzinfo=timezone.utc)
+            
         if expiry_at <= datetime.now(timezone.utc):
             raise ValidationError("Expiry must be in the future")
 
@@ -54,7 +58,14 @@ class ConsentService:
         # Evidence Capture (Atomic)
         await self.evidence_service.capture_evidence(
             session=session,
-            payload=created_consent, # Pydantic/ORM model handling in service
+            payload={
+                "id": str(created_consent.id),
+                "user_id": str(created_consent.user_id),
+                "purpose": created_consent.purpose,
+                "scope": created_consent.scope,
+                "expiry_at": created_consent.expiry_at.isoformat(),
+                "status": created_consent.status
+            },
             action_urn=f"urn:consent:{created_consent.id}:grant"
         )
         

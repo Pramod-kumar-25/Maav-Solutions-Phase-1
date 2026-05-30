@@ -53,9 +53,6 @@ class CAAssignmentService:
         
         if filing.user_id != taxpayer_id:
             raise UnauthorizedError("Unauthorized to assign CA for this filing")
-            
-        if filing.filing_mode != "CA":
-            raise ValidationError("Filing mode must be 'CA' to assign a Chartered Accountant")
 
         if filing.current_state not in ["DRAFT", "READY_FOR_REVIEW"]:
                 raise ValidationError("Cannot assign CA in current state")
@@ -101,7 +98,14 @@ class CAAssignmentService:
         # Evidence Capture (Atomic)
         await self.evidence_service.capture_evidence(
             session=session,
-            payload=created_assignment,
+            payload={
+                "id": str(created_assignment.id),
+                "filing_id": str(created_assignment.filing_id),
+                "ca_user_id": str(created_assignment.ca_user_id),
+                "consent_id": str(created_assignment.consent_id),
+                "status": created_assignment.status,
+                "assigned_at": created_assignment.assigned_at.isoformat()
+            },
             action_urn=f"urn:assignment:{created_assignment.id}:assign"
         )
         
