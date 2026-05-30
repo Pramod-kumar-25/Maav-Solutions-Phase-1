@@ -559,6 +559,200 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 #### Step 3: Filing API Testing (State Machine)
 - **Lifecycle Integrity**: Complete test coverage tracking sequential HTTP state mutations (`DRAFT` → `READY` → `SUBMITTED` → `VERIFIED`).
 - **Safety Blocks**: Explicity asserted `400 Bad Request` mapping when intentionally skipping expected states or triggering duplicate submissions. 
+#### Step 2: Implementation
+-   **Models**: Added `UserConfirmation` & `SubmissionRecord` to `filing.py`.
+-   **Repository**: Created `ConfirmationRepository`.
+-   **Service**:
+    -   Implemented `approve_filing` (Taxpayer Action).
+    -   Enforced Confirmation check in `transition_state` (Submission).
+-   **Evidence**: Linked Submission Evidence to Approval Confirmation.
+
+#### Step 4: Final Lock
+-   **Lock**: `docs/Completion Lock Docs/16_Phase1_CA_Workflow_Implementation_Lock.md` created.
+
+---
+
+### Module 6.1: JWT & Session Architecture (Completed: 2026-02-21)
+**Objective**: Hardened implementation of JWT access tokens and cryptographically secure refresh token sessions.
+
+#### Step 1: Data Layer & Config
+- **Schema Update**: Added `refresh_token_hash` and `status` to `auth_sessions` (Alembic migration).
+- **Hardening**: `config.py` uses Pydantic `@model_validator` to reject default `JWT_SECRET_KEY` in `production`.
+
+#### Step 2: Implementation (AuthService)
+- **Token Design**: 15-minute Access Tokens (stateless) with `sid` and `jti`; 7-day Refresh Tokens (stateful).
+- **Storage**: Opaque 64-byte refresh tokens; only SHA-256 hashes are stored.
+- **Atomic Rotation & Replay Detection**: Refresh flow uses strict atomic transactions. Reuse of a consumed refresh token immediately revokes the session.
+- **Typed Exceptions**: Replaced `ValueError` with `UnauthorizedError`, `NotFoundError`, and `ValidationError`.
+
+#### Step 3: API Layer
+- **Dependencies**: `get_current_user` extracts `sid`. Created `require_active_session` for high-security DB-backed session checks.
+- **Endpoints**: Added `/refresh` and `/logout` to `auth.py`.
+
+#### Step 4: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/17_Phase1_JWT_Session_Architecture_Lock.md`.
+
+---
+
+### Module 6.2: Password Security & Account Protection (Completed: 2026-02-21)
+**Objective**: Build fintech-grade credential brute-force protection, strength policies, and secure password rotation flows.
+
+#### Step 1: Data Layer & Config
+- **Schema Update**: Generated manual Alembic migration to add `last_failed_login_at` to `user_credentials`.
+
+#### Step 2: Policy Enforcement
+- **Validation**: Enforced strict password strength (12 chars, upper, lower, int, special chars, stripped whitespace) directly inside Pydantic schemas (`UserCreate`, `PasswordChange`).
+
+#### Step 3: Brute-Force & Anti-Enumeration (AuthService)
+- **Lockout State**: Implemented deterministic 15-minute temporary lockout after 5 failed attempts.
+- **Race Condition Safety**: Applied `.with_for_update()` row-level locking in `AuthRepository` to eliminate "lost update" race conditions when incrementing the `failed_attempts` tracking counter.
+- **Timing Parity**: Injected "dummy" `bcrypt` hash validation for both "User Not Found" and "Cooldown Active" branches to prevent account enumeration.
+
+#### Step 4: Password Change Flow
+- **Revocation Safety**: Implemented secure `change_password` endpoint that forcibly updates `status = REVOKED` for all of the user's parallel active sessions.
+
+#### Step 5: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/18_Phase1_Password_Security_Lock.md`.
+
+---
+
+### Module 6.3: Authentication Rate Limiting (Completed: 2026-02-21)
+**Objective**: Build a multi-vector, sliding-window rate limiting perimeter to defend authentication endpoints against bots and credential stuffing.
+
+#### Step 1: Core Limiter Implementation
+- **Logic**: Built `InMemoryRateLimiter` using `asyncio.Lock` for concurrency and active memory management (deleting empty coordinate keys after cleanup) to prevent memory leaks.
+- **Fail-Open**: Implemented exception handling to bypass the limiter if internal state errors occur, preventing generalized login outages.
+
+#### Step 2: Routing Integration
+- **Dependency Map**: Injected rate limiting purely at the API Routing layer via FastAPI `Depends`, ensuring `AuthService` remains stateless and unaltered.
+- **Vectors**: Included IP+Normalized Email for Login, IP+SessionID for Refresh, IP for Registration, and UserID for Password Change.
+- **Anti-Enumeration**: Masked HTTP responses with generic `HTTP 429` details and suppressed standard limit-tracking headers.
+
+#### Step 3: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/19_Phase1_Rate_Limiting_Lock.md`.
+
+---
+
+### Module 6.4: Centralized Exception Handling Standardization (Completed: 2026-02-21)
+**Objective**: Build a predictable, standardized global error boundary preventing stack trace leakage and decoupling domain logic from HTTP status management.
+
+#### Step 1: Exception Handler Implementation
+- **Envelope Formatting**: Built `create_error_envelope()` adhering to a strict schema (`code`, `message`, `timestamp`, `path`).
+- **Deterministic Mapping**: Designed an explicit `HTTP_STATUS_TO_CODE_MAP` dictionary for consistent translation.
+- **Log Management**: Separated 4xx (`INFO`) from 5xx (`ERROR` + Traceback) error logs to ensure observability without client leakage.
+
+#### Step 2: API & Service Layer Purity Refactoring
+- **Service Layer**: Migrated all explicit `ValueError` raises to the appropriate `app.core.exceptions` domain exceptions (`ValidationError`, `NotFoundError`, etc.) ensuring HTTP agnosticism.
+- **Router Layer**: Removed redundant `try...except` domain translation logic from `auth`, `taxpayer`, `business`, `financials`, `compliance`, `itr`, `filing`, and `consent` routers.
+- **Registration**: Registered the exception handler natively within the FastAPI `main.py` lifespan via `app.exception_handler`.
+
+#### Step 3: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/20_Phase1_Centralized_Exception_Handling_Lock.md`.
+
+---
+
+### Module 6.5: CORS Policy Hardening (Completed: 2026-02-22)
+**Objective**: Hard-lock the cross-origin browser execution context to guarantee strict whitelisting, preventing cross-site vulnerability footprint while sustaining frontend decoupled performance requirements.
+
+#### Step 1: Configuration Strictness (`app/core/config.py`)
+- **Origin Configuration**: Introduced `BACKEND_CORS_ORIGINS` to safely dictate recognized frontend hostnames.
+- **Fail-Closed Verification**: Overrode `Settings.validate_production_secrets` with precise crash states if an empty list or `*` string is detected in production.
+
+#### Step 2: Layer Attachment (`app/main.py`)
+- **Explicit Verb Limitations**: Pushed HTTP verb limitations array dynamically (GET, POST, OPTIONS, etc.) dropping silent edge methods.
+- **Explicit Header Boundaries**: Removed the `"*" ` header catch-all. Required explicit definition (`Authorization`, `Content-Type`, `Accept`).
+- **Performance**: Included preflight 600-second optimization caching.
+
+#### Step 3: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/21_Phase1_CORS_Policy_Hardening_Lock.md`.
+
+---
+
+### Module 6.6: Secrets Management Policy Formalization (Completed: 2026-02-22)
+**Objective**: Build an aggressively fail-closed initialization barrier enforcing strict minimum cryptographic payloads, memory masking, and explicit environment topologies. 
+
+#### Step 1: Immutable Typing (`app/core/config.py`)
+- **Masking Definition**: Pushed `JWT_SECRET_KEY` into `pydantic.SecretStr` isolating raw cryptographic primitives from generic logging output.
+- **Fallback Elimination**: Purged implicit development payloads (like `APP_ENV="development"`) permanently halting any deployment failing to classify its operating constraints explicitly.
+
+#### Step 2: Advanced Boot Constraints
+- **Production Boundary Validations**: Rewrote parsing loops to test payload density internally against `HS256` standards (<32 bytes throws 500 runtime).
+
+#### Step 3: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/22_Phase1_Secrets_Management_Lock.md`.
+
+---
+
+### Module 6.7: Production Environment Separation Enforcement (Completed: 2026-02-22)
+**Objective**: Hardcode deployment environments to strict schemas, crippling diagnostic verbosity and external API visibility explicitly when decoupled from the developer machine.
+
+#### Step 1: Constraint Verification (`app/core/config.py`)
+- **Literal Typings**: Enforced explicitly that `APP_ENV` strictly evaluate to either `development`, `staging`, or `production`.
+- **Log Constraints**: Banned the `DEBUG` trace flag specifically across `staging` and `production` execution lines mechanically blocking output dumps.
+
+#### Step 2: Footprint Reduction (`app/main.py`)
+- **Swagger Blocking**: Instructed FastAPI to pass `openapi_url=None` universally under `staging`/`production`, rendering API documentation inaccessible.
+- **Health Obfuscation**: Masked `HTTP 503` tracebacks and internal pings to output blind `{"status": "ok"}` responses outside development context.
+
+#### Step 3: Final Lock
+- **Module Completion**: Created `docs/Completion Lock Docs/23_Phase1_Environment_Separation_Lock.md`.
+
+---
+
+### Section 7: Unit Tests for Service Layer (Completed: 2026-04-25)
+**Objective**: Establish a deterministic, fully isolated testing harness for Phase-1 service-layer orchestration logic, enforcing zero database interaction and strict domain exception usage.
+
+#### Step 1: TaxpayerProfileService Tests (`test_create_taxpayer_service.py`)
+- **5 test cases**: Success creation, duplicate rejection (`DuplicateResourceError`), invalid PAN type (`ValidationError`), user not found (`NotFoundError`), default value population.
+- **Write guard**: All failure paths enforce `repo.create.call_count == 0`.
+
+#### Step 2: FilingService State Machine Tests (`test_filing_service.py`)
+- **8 test cases**: DRAFT creation, valid DRAFT→READY transition, invalid skip transitions (DRAFT→VERIFIED, DRAFT→SUBMITTED, READY→VERIFIED), duplicate submission, filing not found, full sequential flow (DRAFT→READY→SUBMITTED→VERIFIED).
+- **Write guard**: All failure paths enforce `repo.update.call_count == 0`.
+
+#### Step 3: FinancialEntryService Tests (`test_financial_entry_service.py`)
+- **11 test cases**: INCOME/EXPENSE creation, negative amount rejection, invalid type rejection ("REFUND", "DEDUCTION"), entry retrieval, entry not found, zero-amount boundary, EXPENSE-filtered retrieval.
+- **Write guard**: All failure paths enforce `repo.create_entry.call_count == 0`.
+
+#### Step 4: Final Lock
+- **Total Tests**: 24 across 3 service files.
+- **Module Completion**: Created `docs/Completion Lock Docs/24_Phase1_Service_Layer_Unit_Tests_Lock.md`.
+
+---
+
+### Section 7.1: Integration Test Infrastructure (Completed: 2026-05-01)
+**Objective**: Establish a fully isolated, transactionally safe integration test infrastructure enabling API-level testing against an ephemeral in-memory database with zero production contact.
+
+#### Step 1: Database Isolation (`conftest.py`)
+- **Engine**: `sqlite+aiosqlite:///:memory:` — ephemeral SQLite, destroyed on process exit.
+- **Zero Production Contact**: Removed all references to `settings.DATABASE_URL`. No `app.core.config` import exists in test infrastructure.
+
+#### Step 2: Transactional Isolation Strategy
+- **Session-scoped**: `setup_database` creates all tables on entry, drops all on exit.
+- **Per-test**: `db_session` fixture wraps each test in a nested savepoint. All writes are rolled back automatically, guaranteeing zero data leakage between tests.
+
+#### Step 3: FastAPI Client Override
+- **Dependency Override**: `get_db` replaced per-test with isolated `db_session`. Overrides cleared after each test.
+- **Async Client**: `httpx.AsyncClient` with `ASGITransport` bound to the app at `http://testserver`.
+
+- **Module Completion**: Created `docs/Completion Lock Docs/25_Phase1_Integration_Test_Infrastructure_Lock.md`.
+
+---
+
+### Section 7.2: Integration Tests for API Flows (Completed: 2026-05-01)
+**Objective**: Hardened and deterministically validated end-to-end API-level orchestration mapped from HTTP ingress straight down through the data persistence layers across all foundational service boundaries.
+
+#### Step 1: Auth API Testing
+- **Coverage**: Registration duplicate checks, strict Login token emission, protected route `401 Unauthorized` enforcement.
+- **Determinism**: Exact HTTP status validations (201 for registration, 400 for duplicates).
+
+#### Step 2: Taxpayer API Testing
+- **Coverage**: Payload schema validation, explicit JWT identity extraction tests, `404 Not Found` interception on premature fetch.
+- **Determinism**: Validated return structure explicitly against strictly typed dynamic responses (`residential_status`, `default_tax_regime`).
+
+#### Step 3: Filing API Testing (State Machine)
+- **Lifecycle Integrity**: Complete test coverage tracking sequential HTTP state mutations (`DRAFT` → `READY` → `SUBMITTED` → `VERIFIED`).
+- **Safety Blocks**: Explicity asserted `400 Bad Request` mapping when intentionally skipping expected states or triggering duplicate submissions. 
 
 #### Step 4: Financial API Testing
 - **Validation Execution**: Domain specific exceptions reliably throwing exactly `400 Bad Request` upon ingress of negative amounts or malformed enums.
@@ -567,3 +761,39 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 #### Step 5: Final Lock
 - **Validation**: Zero mocks injected; all operations ran exclusively through the real system utilizing an isolated `sqlite+aiosqlite:///:memory:` DB mapping.
 - **Module Completion**: Created `docs/Completion Lock Docs/26_Phase1_API_Integration_Tests_Lock.md`.
+
+---
+
+## 📅 SECTION 8 – FRONTEND CLIENT INTEGRATION & END-TO-END VERIFICATION
+**Context**: Connecting the API with a rich, responsive interface and verifying full user workflows.
+**Status**: ✅ COMPLETE
+
+### Module 8.1: Frontend Client Architecture & Dashboard Polish (Completed: 2026-05-30)
+**Objective**: Build a responsive React SPA and resolve user journey blocks across ledger and compliance subsystems.
+
+1. **Dashboard Interface Polish (`Dashboard.jsx`)**:
+   - Integrated dynamic visual card elements displaying critical stats: Total Filings, Submitted Returns, and Actionable/In-Progress items.
+   - Built dynamic routing checks mapping individual users to dedicated taxpayer status parameters, with custom warning banners advising users to set up profiles if none exist.
+2. **ITR Classification Re-determination (`itr_service.py` & `FilingDetail.jsx`)**:
+   - Added support for the `/itr/determine?force=true` query parameter to allow re-classification.
+   - Connected the frontend "Re-determine ITR" action to trigger form upgrades dynamically in real-time (from ITR-1 to ITR-3 upon adding business ledger records).
+3. **Advanced Ledger Management (`FilingDetail.jsx`)**:
+   - Expanded entry validation checks to filter by Income and Expense.
+   - Added functional categorization keys for better bookkeeping.
+   - Added ledger item "Delete" hooks enabling taxpayers to instantly correct entries directly from the dashboard view.
+4. **Automated Auditing & Flag Resolution**:
+   - Integrated full UI banner rendering for `C001` (High Value Transaction) critical flags triggered by expenses exceeding ₹50 Lakhs.
+   - Configured resolution interfaces that securely push comments to `/compliance/{id}/resolve` to clear indicators and write audit events directly to DB.
+
+### Module 8.2: Multi-Role CA Collaboration Integration (Completed: 2026-05-30)
+**Objective**: Bridge secure cross-tenant authentication to link CA users with active client filings.
+
+1. **Robust Core Verification (`consent_service.py` & `ca_assignment_service.py`)**:
+   - Resolved tz-naive datetime matching issues on new consent artifact creations.
+   - Restructured SQLAlchemy model records into serializable dictionary formats prior to hashing to fix critical JSON errors inside the Evidence Capture module.
+2. **CA API Router Hardening (`filing.py`)**:
+   - Modified `check_access` rules to permit `CA` roles on filing retrievals.
+   - Updated the `GET /filing/` endpoint to check active relationships in `ca_assignments` and return client cases when a CA queries the database.
+3. **Cross-Tenant Dashboard Context Mapping (`Dashboard.jsx`)**:
+   - Corrected token claims parsing inside standard dashboard loaders to check for `primary_role` instead of `role`.
+   - Enabled dynamic client contextual rendering—meaning that CAs now see their clients' legal names mapped directly beside the financial year (e.g., `Priya Sharma - FY 2023-24`) on their dashboard cards instead of plain, indistinguishable filing records.
