@@ -97,3 +97,34 @@ async def assign_ca(
     except Exception:
         await session.rollback()
         raise
+
+
+@router.get("/", response_model=list[ConsentResponse], status_code=status.HTTP_200_OK)
+async def list_consents(
+    current_user: User = Depends(deps.get_current_user),
+    service: ConsentService = Depends(deps.get_consent_service),
+    session: AsyncSession = Depends(get_db)
+):
+    """
+    Return all consent artifacts belonging to the authenticated taxpayer.
+    """
+    check_taxpayer_access(current_user)
+    return await service.consent_repo.get_by_user(session, current_user.id)
+
+
+@router.get("/{consent_id}", response_model=ConsentResponse, status_code=status.HTTP_200_OK)
+async def get_consent(
+    consent_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+    service: ConsentService = Depends(deps.get_consent_service),
+    session: AsyncSession = Depends(get_db)
+):
+    """
+    Return details for a single consent artifact.
+    """
+    check_taxpayer_access(current_user)
+    consent = await service.consent_repo.get_by_id(session, consent_id)
+    if not consent or consent.user_id != current_user.id:
+        raise NotFoundError("Consent not found")
+    return consent
+

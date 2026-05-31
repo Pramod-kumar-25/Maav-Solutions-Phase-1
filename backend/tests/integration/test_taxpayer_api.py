@@ -3,8 +3,13 @@ from httpx import AsyncClient
 
 pytestmark = pytest.mark.asyncio
 
+# Global counter to keep email, mobile and PAN unique across test cases
+_counter = 0
+
 async def _get_auth_token(client: AsyncClient, email: str = "taxpayer@example.com") -> str:
     """Helper to register and login a user to get a token."""
+    global _counter
+    _counter += 1
     password = "StrongPassword123!"
     
     # Register
@@ -13,7 +18,9 @@ async def _get_auth_token(client: AsyncClient, email: str = "taxpayer@example.co
         json={
             "email": email,
             "password": password,
-            "full_name": "Test Taxpayer",
+            "legal_name": "Test Taxpayer",
+            "mobile": f"987654{2000 + _counter:04d}",
+            "pan": f"ABCDE{2000 + _counter:04d}Z",
             "primary_role": "INDIVIDUAL"
         }
     )
@@ -21,7 +28,7 @@ async def _get_auth_token(client: AsyncClient, email: str = "taxpayer@example.co
     # Login
     response = await client.post(
         "/api/v1/auth/login",
-        data={"username": email, "password": password}
+        json={"email": email, "password": password}
     )
     return response.json()["access_token"]
 
@@ -30,7 +37,7 @@ async def test_create_taxpayer_profile_success(client: AsyncClient):
     """
     Test Case: test_create_taxpayer_profile_success
     - Authenticated user creates profile
-    - Expect 200 response
+    - Expect 201 response
     - Validate response structure
     """
     token = await _get_auth_token(client, "create_success@example.com")
@@ -46,7 +53,7 @@ async def test_create_taxpayer_profile_success(client: AsyncClient):
     
     response = await client.post("/api/v1/taxpayer/profile", json=payload, headers=headers)
     
-    assert response.status_code == 200
+    assert response.status_code == 201
     data = response.json()
     assert "id" in data
     assert "user_id" in data
@@ -73,7 +80,8 @@ async def test_create_taxpayer_profile_unauthorized(client: AsyncClient):
     
     assert response.status_code == 401
     data = response.json()
-    assert "detail" in data
+    assert "error" in data
+    assert data["error"]["code"] == "UNAUTHORIZED"
 
 
 async def test_get_taxpayer_profile(client: AsyncClient):
@@ -95,7 +103,7 @@ async def test_get_taxpayer_profile(client: AsyncClient):
     
     # 1. Create the profile
     create_resp = await client.post("/api/v1/taxpayer/profile", json=payload, headers=headers)
-    assert create_resp.status_code == 200
+    assert create_resp.status_code == 201
     
     # 2. Fetch the profile
     response = await client.get("/api/v1/taxpayer/profile", headers=headers)
@@ -127,15 +135,15 @@ async def test_duplicate_taxpayer_profile(client: AsyncClient):
     
     # 1. Create the profile successfully
     first_resp = await client.post("/api/v1/taxpayer/profile", json=payload, headers=headers)
-    assert first_resp.status_code == 200
+    assert first_resp.status_code == 201
     
     # 2. Attempt duplicate creation
     second_resp = await client.post("/api/v1/taxpayer/profile", json=payload, headers=headers)
     
-    # We strictly enforce the 400 error schema validation for duplicates
     assert second_resp.status_code == 400
     data = second_resp.json()
-    assert "detail" in data
+    assert "error" in data
+    assert "already exists" in data["error"]["message"].lower()
 
 
 async def test_get_taxpayer_profile_not_found(client: AsyncClient):
@@ -152,7 +160,8 @@ async def test_get_taxpayer_profile_not_found(client: AsyncClient):
     
     assert response.status_code == 404
     data = response.json()
-    assert "detail" in data
+    assert "error" in data
+    assert data["error"]["code"] == "NOT_FOUND"
 
 
 async def test_get_taxpayer_profile_unauthorized(client: AsyncClient):
@@ -165,4 +174,5 @@ async def test_get_taxpayer_profile_unauthorized(client: AsyncClient):
     
     assert response.status_code == 401
     data = response.json()
-    assert "detail" in data
+    assert "error" in data
+    assert data["error"]["code"] == "UNAUTHORIZED"

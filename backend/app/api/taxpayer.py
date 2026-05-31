@@ -28,8 +28,12 @@ async def create_taxpayer_profile(
     - **Calculates**: Residential Status automatically
     - **Constraint**: One profile per user
     """
-    profile = await service.create_profile(session, current_user.id, profile_in)
-    return profile
+    try:
+        profile = await service.create_profile(session, current_user.id, profile_in)
+        return profile
+    except ValueError as e:
+        from app.core.exceptions import ValidationError
+        raise ValidationError(str(e))
 
 @router.get(
     "/profile",

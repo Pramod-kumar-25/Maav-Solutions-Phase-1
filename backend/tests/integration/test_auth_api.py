@@ -13,12 +13,13 @@ async def test_register_user_success(client: AsyncClient):
     payload = {
         "email": "newuser@example.com",
         "password": "StrongPassword123!",
-        "full_name": "New User",
+        "legal_name": "New User",
+        "mobile": "9876543210",
+        "pan": "ABCDE1234Z",
         "primary_role": "INDIVIDUAL"
     }
 
     response = await client.post("/api/v1/auth/register", json=payload)
-    
     assert response.status_code == 201
     
     data = response.json()
@@ -37,7 +38,9 @@ async def test_register_duplicate_user(client: AsyncClient):
     payload = {
         "email": "duplicate@example.com",
         "password": "StrongPassword123!",
-        "full_name": "Duplicate User",
+        "legal_name": "Duplicate User",
+        "mobile": "9876543211",
+        "pan": "ABCDE1235Z",
         "primary_role": "INDIVIDUAL"
     }
 
@@ -46,10 +49,10 @@ async def test_register_duplicate_user(client: AsyncClient):
 
     # 2. Attempt duplicate registration
     response = await client.post("/api/v1/auth/register", json=payload)
-    
     assert response.status_code == 400
     data = response.json()
-    assert "detail" in data
+    assert "error" in data
+    assert "already registered" in data["error"]["message"].lower()
 
 
 async def test_login_success(client: AsyncClient):
@@ -67,15 +70,17 @@ async def test_login_success(client: AsyncClient):
         json={
             "email": email, 
             "password": password, 
-            "full_name": "Login User", 
+            "legal_name": "Login User", 
+            "mobile": "9876543212",
+            "pan": "ABCDE1236Z",
             "primary_role": "INDIVIDUAL"
         }
     )
 
-    # 2. Login using OAuth2 form data
+    # 2. Login using JSON
     response = await client.post(
         "/api/v1/auth/login",
-        data={"username": email, "password": password}
+        json={"email": email, "password": password}
     )
 
     assert response.status_code == 200
@@ -99,7 +104,9 @@ async def test_login_invalid_credentials(client: AsyncClient):
         json={
             "email": email, 
             "password": password, 
-            "full_name": "Invalid Login User", 
+            "legal_name": "Invalid Login User", 
+            "mobile": "9876543213",
+            "pan": "ABCDE1237Z",
             "primary_role": "INDIVIDUAL"
         }
     )
@@ -107,12 +114,13 @@ async def test_login_invalid_credentials(client: AsyncClient):
     # 2. Attempt login with wrong password
     response = await client.post(
         "/api/v1/auth/login",
-        data={"username": email, "password": "WrongPassword123!"}
+        json={"email": email, "password": "WrongPassword123!"}
     )
 
     assert response.status_code == 401
     data = response.json()
-    assert "detail" in data
+    assert "error" in data
+    assert data["error"]["code"] == "UNAUTHORIZED"
 
 
 async def test_protected_route_without_token(client: AsyncClient):
@@ -128,7 +136,8 @@ async def test_protected_route_without_token(client: AsyncClient):
 
     assert response.status_code == 401
     data = response.json()
-    assert "detail" in data
+    assert "error" in data
+    assert data["error"]["code"] == "UNAUTHORIZED"
 
 
 async def test_protected_route_with_token(client: AsyncClient):
@@ -137,7 +146,7 @@ async def test_protected_route_with_token(client: AsyncClient):
     - Register user
     - Login to get access token
     - Call protected endpoint with Authorization header
-    - Expect successful response (200)
+    - Expect successful response (201)
     """
     email = "protected_access@example.com"
     password = "StrongPassword123!"
@@ -148,7 +157,9 @@ async def test_protected_route_with_token(client: AsyncClient):
         json={
             "email": email, 
             "password": password, 
-            "full_name": "Protected Route User", 
+            "legal_name": "Protected Route User", 
+            "mobile": "9876543214",
+            "pan": "ABCDE1238Z",
             "primary_role": "INDIVIDUAL"
         }
     )
@@ -156,7 +167,7 @@ async def test_protected_route_with_token(client: AsyncClient):
     # 2. Login to get token
     login_resp = await client.post(
         "/api/v1/auth/login",
-        data={"username": email, "password": password}
+        json={"email": email, "password": password}
     )
     token = login_resp.json()["access_token"]
     
@@ -174,4 +185,4 @@ async def test_protected_route_with_token(client: AsyncClient):
         headers=headers
     )
     
-    assert response.status_code == 200
+    assert response.status_code == 201

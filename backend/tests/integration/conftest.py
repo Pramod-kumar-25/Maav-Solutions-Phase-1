@@ -18,6 +18,38 @@ from app.core.dependencies import get_db
 from app.main import app
 from app.models.base import Base
 
+import uuid
+from sqlalchemy import ColumnDefault
+
+# Import all models to ensure they are registered in Base.metadata
+import app.models as app_models
+from app.models.evidence import EvidenceRecord
+
+
+# Dynamically patch all primary key and uuid_generate_v4 columns for SQLite compatibility
+for table in Base.metadata.tables.values():
+    for column in table.columns:
+        if column.primary_key or (column.server_default is not None and "uuid_generate_v4" in str(column.server_default.arg)):
+            column.server_default = None
+            column.default = ColumnDefault(uuid.uuid4)
+
+
+
+
+
+
+
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.dialects.postgresql import INET, JSONB
+
+@compiles(INET, "sqlite")
+def compile_inet_sqlite(element, compiler, **kw):
+    return "VARCHAR(45)"
+
+@compiles(JSONB, "sqlite")
+def compile_jsonb_sqlite(element, compiler, **kw):
+    return "JSON"
+
 
 # ---------------------------------------------------------------------------
 # Engine & Session Factory (isolated SQLite in-memory)
@@ -28,6 +60,14 @@ test_engine = create_async_engine(
     TEST_DATABASE_URL,
     echo=False,
 )
+
+from sqlalchemy import event
+import uuid
+
+@event.listens_for(test_engine.sync_engine, "connect")
+def register_sqlite_functions(dbapi_connection, connection_record):
+    dbapi_connection.create_function("uuid_generate_v4", 0, lambda: str(uuid.uuid4()))
+
 
 TestSessionLocal = async_sessionmaker(
     bind=test_engine,
@@ -84,16 +124,9 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         transaction = await connection.begin()
         session = AsyncSession(bind=connection, expire_on_commit=False)
 
-        # Nested savepoint for test isolation
-        nested = await connection.begin_nested()
-
         try:
             yield session
         finally:
-            # Rollback savepoint (undo all test writes)
-            if nested.is_active:
-                await nested.rollback()
-            # Rollback outer transaction
             if transaction.is_active:
                 await transaction.rollback()
             await session.close()

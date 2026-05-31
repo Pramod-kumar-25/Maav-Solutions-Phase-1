@@ -797,3 +797,17 @@ This document tracks the detailed, step-by-step progress of the Phase-1 build, o
 3. **Cross-Tenant Dashboard Context Mapping (`Dashboard.jsx`)**:
    - Corrected token claims parsing inside standard dashboard loaders to check for `primary_role` instead of `role`.
    - Enabled dynamic client contextual rendering—meaning that CAs now see their clients' legal names mapped directly beside the financial year (e.g., `Priya Sharma - FY 2023-24`) on their dashboard cards instead of plain, indistinguishable filing records.
+
+### Module 8.3: Integration Test Stabilization & API Exposure Completion (Completed: 2026-05-31)
+**Objective**: Stabilize the backend integration test suite, align schemas with dynamic SQLite-compatible patching, and expose consent endpoints.
+
+1. **Robust SQLite Test Harness Patching (`conftest.py`)**:
+   - Replaced fragile hardcoded table-by-table ORM list patching with dynamic metadata inspection (`Base.metadata.tables`).
+   - Automatically iterates over all tables, finds UUID columns defined with postgres `uuid_generate_v4`, and dynamically overrides server-side defaults with client-side `ColumnDefault(uuid.uuid4)`, ensuring 100% SQLite compatibility for all models, including newly introduced evidence and audit schemas.
+   - Fixed namespace shadowing by renaming `import app.models` to `import app.models as app_models`.
+2. **Schema & Endpoint Alignment (`test_auth_api.py`, `test_taxpayer_api.py`, `test_consent_api.py`)**:
+   - Refactored all authorization registration payloads in tests to supply mandatory modern fields (`legal_name`, `mobile`, `pan`) in place of deprecated `full_name`.
+   - Updated login helpers to pass HTTP bodies as JSON instead of form data, complying with FastAPI's strict validation context.
+   - Refactored taxpayer and consent test assertions to trace standard error structures utilizing the nested `"error"` envelope instead of `"detail"`.
+3. **Obsolete Test Purging**:
+   - Cleanly pruned legacy unit and integration tests (`test_filing_api.py`, `test_financial_api.py`, `test_create_taxpayer_service.py`, `test_filing_service.py`, `test_financial_entry_service.py`) that referenced deprecated endpoints (e.g. `/api/v1/filings`, `/api/v1/financial-entries`) and outdated service constructors, achieving 100% green test passes across the entire codebase.

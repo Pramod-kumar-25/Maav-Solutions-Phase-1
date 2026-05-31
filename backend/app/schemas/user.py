@@ -79,3 +79,11 @@ class UserResponse(UserBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CAResponse(BaseModel):
+    id: UUID
+    legal_name: str
+    email: EmailStr
+    model_config = ConfigDict(from_attributes=True)
+

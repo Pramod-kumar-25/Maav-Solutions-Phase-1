@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db
-from app.schemas.user import UserCreate, UserLogin, UserResponse, PasswordChange
+from app.schemas.user import UserCreate, UserLogin, UserResponse, PasswordChange, CAResponse
 from app.schemas.token import Token
 from app.services.auth_service import AuthService
-from .deps import get_auth_service, require_active_session
+from .deps import get_auth_service, require_active_session, get_current_user
 from app.models.user import User
 from app.core.rate_limit import check_rate_limit
 from app.core.exceptions import UnauthorizedError, ValidationError
@@ -113,3 +114,25 @@ async def change_password(
         active_session_id=active_sid
     )
     return {"message": "Password updated successfully"}
+
+
+@router.get("/cas", response_model=list[CAResponse], status_code=status.HTTP_200_OK)
+async def list_cas(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db)
+):
+    """
+    Allow taxpayers to discover registered CA accounts.
+    """
+    if current_user.primary_role not in ["INDIVIDUAL", "BUSINESS"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Only Taxpayers can perform this action."
+        )
+    
+    stmt = select(User).where(
+        User.primary_role == "CA",
+        User.account_status == "ACTIVE"
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
