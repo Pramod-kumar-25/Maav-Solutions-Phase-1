@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { request } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 const STEPS = [
   { key: 'DRAFT', label: 'Draft', icon: '✏️', desc: 'Adding financial entries' },
@@ -18,6 +19,7 @@ const TRANSITION_LABELS = {
 
 export default function FilingDetail() {
   const { year } = useParams();
+  const { token } = useAuth();
   const [filing, setFiling] = useState(null);
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,16 @@ export default function FilingDetail() {
   const [addingEntry, setAddingEntry] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  let isTaxpayer = false;
+  if (token) {
+    try {
+      const payload = token.split('.')[1];
+      const jwtPayload = JSON.parse(atob(payload));
+      const role = jwtPayload.primary_role || jwtPayload.role;
+      isTaxpayer = role === 'INDIVIDUAL';
+    } catch {}
+  }
 
   const [entryForm, setEntryForm] = useState({ type: 'INCOME', amount: '', description: '', category: 'GENERAL' });
   const [flags, setFlags] = useState([]);
@@ -172,6 +184,11 @@ export default function FilingDetail() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          {isTaxpayer && (filing.current_state === 'DRAFT' || filing.current_state === 'READY_FOR_REVIEW') && (
+            <Link to={`/filings/${year}/delegate`} className="btn btn-outline btn-sm" data-testid="assign-ca-btn">
+              🤝 Assign CA
+            </Link>
+          )}
           <span className={`badge badge-${filing.current_state?.toLowerCase()}`} style={{ fontSize: '0.8rem', padding: '0.4rem 1rem' }}>
             {filing.current_state?.replace(/_/g, ' ')}
           </span>

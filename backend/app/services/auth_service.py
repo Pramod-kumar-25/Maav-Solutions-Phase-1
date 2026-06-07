@@ -96,9 +96,9 @@ class AuthService:
              verify_password(user_login.password, self.dummy_hash)
              raise UnauthorizedError(generic_error_msg)
 
-        # 2. Check Cooldown Status
+        # 2. Check Cooldown Status (bypassed in development environment)
         now_utc = datetime.now(timezone.utc)
-        if credentials.failed_attempts >= max_attempts and credentials.last_failed_login_at:
+        if settings.APP_ENV != "development" and credentials.failed_attempts >= max_attempts and credentials.last_failed_login_at:
             time_since_last_fail = now_utc - credentials.last_failed_login_at
             if time_since_last_fail < timedelta(minutes=cooldown_minutes):
                 # Cooldown active. Simulate hash delay to hide lockout status.

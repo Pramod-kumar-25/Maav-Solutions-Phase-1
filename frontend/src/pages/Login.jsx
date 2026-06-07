@@ -8,6 +8,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,7 +31,7 @@ export default function Login() {
         <div className="auth-brand-content">
           <div className="auth-brand-logo">M</div>
           <h2>MaaV Solutions</h2>
-          <p>India's intelligent tax filing orchestration platform for individuals, businesses, and chartered accountants.</p>
+          <p>India's intelligent tax filing orchestration platform for individuals and chartered accountants.</p>
           <div className="auth-features">
             <div className="auth-feature">
               <div className="auth-feature-icon">🔒</div>
@@ -79,9 +80,20 @@ export default function Login() {
               />
             </div>
             <div className="form-group">
-              <label>Password</label>
+              <div className="flex justify-between items-center" style={{ marginBottom: '0.5rem' }}>
+                <label style={{ margin: 0 }}>Password</label>
+                <label className="flex items-center gap-1 text-xs text-muted" style={{ cursor: 'pointer', margin: 0, fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    checked={showPassword}
+                    onChange={() => setShowPassword(!showPassword)}
+                    style={{ width: 'auto', padding: 0, margin: 0 }}
+                  />
+                  Show password
+                </label>
+              </div>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 required
                 value={form.password}

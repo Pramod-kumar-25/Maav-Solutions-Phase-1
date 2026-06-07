@@ -11,6 +11,7 @@ export default function Register() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -82,7 +83,6 @@ export default function Register() {
                 <label>Role</label>
                 <select value={form.primary_role} onChange={e => setForm({ ...form, primary_role: e.target.value })}>
                   <option value="INDIVIDUAL">Individual</option>
-                  <option value="BUSINESS">Business</option>
                   <option value="CA">CA</option>
                 </select>
               </div>
@@ -113,9 +113,20 @@ export default function Register() {
               />
             </div>
             <div className="form-group">
-              <label>Password</label>
+              <div className="flex justify-between items-center" style={{ marginBottom: '0.5rem' }}>
+                <label style={{ margin: 0 }}>Password</label>
+                <label className="flex items-center gap-1 text-xs text-muted" style={{ cursor: 'pointer', margin: 0, fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    checked={showPassword}
+                    onChange={() => setShowPassword(!showPassword)}
+                    style={{ width: 'auto', padding: 0, margin: 0 }}
+                  />
+                  Show password
+                </label>
+              </div>
               <input
-                type="password" placeholder="Minimum 8 characters"
+                type={showPassword ? "text" : "password"} placeholder="Minimum 8 characters"
                 required value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
               />

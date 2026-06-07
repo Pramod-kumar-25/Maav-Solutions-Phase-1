@@ -99,6 +99,18 @@ export default function Layout() {
               New Filing
             </NavLink>
           </div>
+
+          {primaryRole === 'INDIVIDUAL' && (
+            <div className="sidebar-section">
+              <div className="sidebar-section-label">Settings</div>
+              <NavLink to="/settings/consent" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <svg className="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-13.32 9-8.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                Consent Manager
+              </NavLink>
+            </div>
+          )}
         </nav>
 
         <div className="sidebar-footer">
